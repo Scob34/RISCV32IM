@@ -1,4 +1,5 @@
 module tb ();
+    import riscv_pkg::*;
     //logic [riscv_pkg::XLEN-1:0] addr;
     //logic [riscv_pkg::XLEN-1:0] data;
     logic [riscv_pkg::XLEN-1:0] pc;
@@ -14,6 +15,7 @@ module tb ();
     logic                       mem_write_enable;
     logic                       mem_read_enable;
     logic                       reg_file_write_enable;
+    riscv_pkg:: operation_e     operation;
 
     //test.log ile pc.log karşılaştırması yaparken daha rahat edebilmek için instr, reg_addr ve reg_data'yı ekledik ki program counter(pc) yanında bunları da
     //ekrana basalım ve test.log ile aynı formatta olsun.
@@ -30,7 +32,8 @@ module tb ();
         .memory_write_data_o(mem_write_data),
         .memory_read_enable_o(mem_read_enable),
         .memory_write_enable_o(mem_write_enable),
-        .register_file_write_enable_o(reg_file_write_enable)
+        .register_file_write_enable_o(reg_file_write_enable),
+        .operation_o(operation)
     );
 
     initial begin
@@ -40,7 +43,12 @@ module tb ();
             if(update) begin
                 if(pc != 0) begin
                     if(mem_write_enable == 1) begin
-                        $display("0x%8h (0x%8h) mem 0x%8h 0x%8h", pc, instr, mem_write_addr, mem_write_data);
+                        case(operation)
+                            SW: $display("0x%8h (0x%8h) mem 0x%8h 0x%8h", pc, instr, mem_write_addr, mem_write_data);
+                            SH: $display("0x%8h (0x%8h) mem 0x%8h 0x%4h", pc, instr, mem_write_addr, mem_write_data);
+                            SB: $display("0x%8h (0x%8h) mem 0x%8h 0x%2h", pc, instr, mem_write_addr, mem_write_data);
+                            default: ;
+                        endcase
                     end
                     else begin
                         if((mem_read_enable == 1) && (reg_addr != 0)) begin

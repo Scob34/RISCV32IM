@@ -13,7 +13,8 @@ module core_model
     output logic [XLEN-1:0] memory_write_data_o,
     output logic            memory_read_enable_o,
     output logic            memory_write_enable_o,
-    output logic            register_file_write_enable_o
+    output logic            register_file_write_enable_o,
+    output operation_e      operation_o
 );
 
 /////////////////////////////////////////////////////////////////////////FETCH AŞAMASI//////////////////////////////////////////////////////////////////////////
@@ -49,7 +50,7 @@ module core_model
 
     //Instruction_Read_Comb
     logic [31:0] instruction_memory [MEM_SIZE-1:0]; // Intruction memory tanımı
-    initial $readmemh("./test/test.hex", instruction_memory, 0, MEM_SIZE); // Test dosyasını memory'e yüklüyoruz.
+    initial $readmemh("./test/instruction2.hex", instruction_memory, 0, MEM_SIZE); // Test dosyasını memory'e yüklüyoruz.
 
     logic [XLEN-1:0] instr_d_fetch;
 
@@ -796,6 +797,7 @@ module core_model
     assign memory_read_enable_o = data_memory_read_enable_d_writeback;
     assign memory_write_enable_o = data_memory_write_enable_d_writeback;
     assign register_file_write_enable_o = register_file_write_enable_d_writeback;
+    assign operation_o = operation_d_writeback;
 
 
 
