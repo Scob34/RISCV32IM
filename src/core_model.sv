@@ -50,8 +50,8 @@ module core_model
 
     //Instruction_Read_Comb
     logic [31:0] instruction_memory [MEM_SIZE-1:0]; // Intruction memory tanımı
-    //initial $readmemh("./test/instruction3.hex", instruction_memory, 0, MEM_SIZE); // Test dosyasını memory'e yüklüyoruz.
-    initial $readmemh("./test/instruction3.hex", instruction_memory, 0, MEM_SIZE);
+    initial $readmemh("./test/test.hex", instruction_memory, 0, MEM_SIZE); // Test dosyasını memory'e yüklüyoruz.
+    //initial $readmemh("./test/instruction3.hex", instruction_memory, 0, MEM_SIZE);
 
     logic [XLEN-1:0] instr_d_fetch;
 
