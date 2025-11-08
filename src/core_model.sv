@@ -50,7 +50,8 @@ module core_model
 
     //Instruction_Read_Comb
     logic [31:0] instruction_memory [MEM_SIZE-1:0]; // Intruction memory tanımı
-    initial $readmemh("./test/instruction3.hex", instruction_memory, 0, MEM_SIZE); // Test dosyasını memory'e yüklüyoruz.
+    //initial $readmemh("./test/instruction3.hex", instruction_memory, 0, MEM_SIZE); // Test dosyasını memory'e yüklüyoruz.
+    initial $readmemh("./test/instruction3.hex", instruction_memory, 0, MEM_SIZE);
 
     logic [XLEN-1:0] instr_d_fetch;
 
@@ -280,7 +281,7 @@ module core_model
     // REGITER FILE
     logic [XLEN-1:0] register_file [31:0];
 
-    always_ff @(negedge clk or negedge rstn) begin : REGISTER_FILE_WRITEBACK
+    always_ff @(posedge clk or negedge rstn) begin : REGISTER_FILE_WRITEBACK
         if(!rstn) begin
             for(int i = 0; i <32; i++) begin
                 register_file[i] <= 0;
@@ -767,7 +768,14 @@ module core_model
         is_Stall_PC_FF = 0;
         is_Stall_IF_ID_Register = 0;
 
-        if(((rs1_addr_d_decode == rd_d_execute) || (rs2_addr_d_decode == rd_d_execute)) && (rd_d_execute != 0) && data_memory_read_enable_d_execute) begin
+        if(((rs1_addr_d_decode == rd_d_execute) || (rs2_addr_d_decode == rd_d_execute)) && (rd_d_execute != 0) && data_memory_read_enable_d_execute && !jump_pc_valid_d_execute) begin
+            is_Flush_IF_ID_Register = 0;
+            is_Flush_ID_IEX_Register = 1;
+
+            is_Stall_PC_FF = 1;
+            is_Stall_IF_ID_Register = 1;
+        end
+        else if(((rs1_addr_d_decode == rd_d_writeback) || (rs2_addr_d_decode == rd_d_writeback)) && (rd_d_writeback != 0) && register_file_write_enable_d_writeback && !jump_pc_valid_d_execute) begin
             is_Flush_IF_ID_Register = 0;
             is_Flush_ID_IEX_Register = 1;
 

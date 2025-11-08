@@ -85,7 +85,7 @@ module tb ();
         rstn = 1; // 4 birim saniye sonra reset sinyali 1 oluyor ki program çalışmaya başlasın çünkü reset sinyali negatif edge ile çalışıyor
                   // bu nedenle reset sinyali 0 olduğunda program reset halinde oluyor.
 
-        #3954; //3954 birim saniye bekliyoruz
+        #5000; //5000 birim saniye bekliyoruz
 
         $finish;
     end
