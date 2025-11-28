@@ -50,8 +50,8 @@ module core_model
 
     //Instruction_Read_Comb
     logic [31:0] instruction_memory [MEM_SIZE-1:0]; // Intruction memory tanımı
-    initial $readmemh("./test/test.hex", instruction_memory, 0, MEM_SIZE); // Test dosyasını memory'e yüklüyoruz.
-    //initial $readmemh("./test/instruction3.hex", instruction_memory, 0, MEM_SIZE);
+    //initial $readmemh("./test/test.hex", instruction_memory, 0, MEM_SIZE); // Test dosyasını memory'e yüklüyoruz.
+    initial $readmemh("./test/instruction3.hex", instruction_memory, 0, MEM_SIZE);
 
     logic [XLEN-1:0] instr_d_fetch;
 
@@ -114,10 +114,8 @@ module core_model
     assign rs2_addr_d_decode = instr_d_decode[24:20];
 
     logic [XLEN-1:0] rs1_data_d_decode;
-    assign rs1_data_d_decode = register_file[rs1_addr_d_decode];
 
     logic [XLEN-1:0] rs2_data_d_decode;
-    assign rs2_data_d_decode = register_file[rs2_addr_d_decode];
 
     operation_e operation_d_decode;
 
@@ -280,6 +278,8 @@ module core_model
 
     // REGITER FILE
     logic [XLEN-1:0] register_file [31:0];
+    assign rs1_data_d_decode =(register_file_write_enable_d_writeback && (rd_d_writeback != 0) && (rd_d_writeback == rs1_addr_d_decode)) ? rd_data_d_writeback : register_file[rs1_addr_d_decode];
+    assign rs2_data_d_decode =(register_file_write_enable_d_writeback && (rd_d_writeback != 0) && (rd_d_writeback == rs2_addr_d_decode)) ? rd_data_d_writeback : register_file[rs2_addr_d_decode];
 
     always_ff @(posedge clk or negedge rstn) begin : REGISTER_FILE_WRITEBACK
         if(!rstn) begin
@@ -374,6 +374,9 @@ module core_model
 
     logic [     4:0] rs2_addr_d_execute;
     assign rs2_addr_d_execute = rs2_addr_q_decode;
+    
+    operation_e operation_d_execute;
+    assign operation_d_execute = operation_q_decode;
 
     logic [XLEN-1:0] rs1_data_d_execute;
     always_comb begin : forwarding_rs1
@@ -399,9 +402,6 @@ module core_model
         else
             rs2_data_d_execute = 0; // beklenmedik durum
     end
-
-    operation_e operation_d_execute;
-    assign operation_d_execute = operation_q_decode;
 
     // INTERNAL DEĞİŞKENLER
 
@@ -521,8 +521,8 @@ module core_model
         endcase
     end
 
-    // IEX/MEM REGISTER
-    always_ff @(posedge clk or negedge rstn) begin : IEX_MEM_REGISTER
+    // EX/MEM REGISTER
+    always_ff @(posedge clk or negedge rstn) begin : EX_MEM_REGISTER
         if(!rstn) begin
             instr_q_execute <= 0;
             pc_q_execute <= 0;
@@ -775,13 +775,13 @@ module core_model
             is_Stall_PC_FF = 1;
             is_Stall_IF_ID_Register = 1;
         end
-        else if(((rs1_addr_d_decode == rd_d_writeback) || (rs2_addr_d_decode == rd_d_writeback)) && (rd_d_writeback != 0) && register_file_write_enable_d_writeback && !jump_pc_valid_d_execute) begin
+        /*else if(((rs1_addr_d_decode == rd_d_writeback) || (rs2_addr_d_decode == rd_d_writeback)) && (rd_d_writeback != 0) && register_file_write_enable_d_writeback && !jump_pc_valid_d_execute) begin
             is_Flush_IF_ID_Register = 0;
             is_Flush_ID_IEX_Register = 1;
 
             is_Stall_PC_FF = 1;
             is_Stall_IF_ID_Register = 1;
-        end
+        end*/
         else if(jump_pc_valid_d_execute) begin
             is_Flush_IF_ID_Register = 1;
             is_Flush_ID_IEX_Register = 1;
