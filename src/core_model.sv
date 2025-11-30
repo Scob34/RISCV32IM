@@ -768,26 +768,19 @@ module core_model
         is_Stall_PC_FF = 0;
         is_Stall_IF_ID_Register = 0;
 
-        if(((rs1_addr_d_decode == rd_d_execute) || (rs2_addr_d_decode == rd_d_execute)) && (rd_d_execute != 0) && data_memory_read_enable_d_execute && !jump_pc_valid_d_execute) begin
-            is_Flush_IF_ID_Register = 0;
-            is_Flush_ID_IEX_Register = 1;
-
-            is_Stall_PC_FF = 1;
-            is_Stall_IF_ID_Register = 1;
-        end
-        /*else if(((rs1_addr_d_decode == rd_d_writeback) || (rs2_addr_d_decode == rd_d_writeback)) && (rd_d_writeback != 0) && register_file_write_enable_d_writeback && !jump_pc_valid_d_execute) begin
-            is_Flush_IF_ID_Register = 0;
-            is_Flush_ID_IEX_Register = 1;
-
-            is_Stall_PC_FF = 1;
-            is_Stall_IF_ID_Register = 1;
-        end*/
-        else if(jump_pc_valid_d_execute) begin
+        if(jump_pc_valid_d_execute) begin
             is_Flush_IF_ID_Register = 1;
             is_Flush_ID_IEX_Register = 1;
 
             is_Stall_PC_FF = 0;
             is_Stall_IF_ID_Register = 0;
+        end
+        else if(((rs1_addr_d_decode == rd_d_execute) || (rs2_addr_d_decode == rd_d_execute)) && (rd_d_execute != 0) && data_memory_read_enable_d_execute) begin
+            is_Flush_IF_ID_Register = 0;
+            is_Flush_ID_IEX_Register = 1;
+
+            is_Stall_PC_FF = 1;
+            is_Stall_IF_ID_Register = 1;
         end
         else ;
     end
