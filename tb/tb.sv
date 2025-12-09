@@ -36,58 +36,80 @@ module tb ();
         .operation_o(operation)
     );
 
+// CLOCK SİNYALİ ÜRETİMİ
     initial begin
-        #20;  //reset sinyalinin 0 olduğu süre kadar bekliyoruz çünkü reset 0 iken program sıfırlanıyor bu nedenle ekrana basmaya gerek yok.
-        forever begin
-
-            if(update) begin
-                if(pc != 0) begin
-                    if(mem_write_enable == 1) begin
-                        case(operation)
-                            SW: $display("0x%8h (0x%8h) mem 0x%8h 0x%8h", pc, instr, mem_write_addr, mem_write_data);
-                            SH: $display("0x%8h (0x%8h) mem 0x%8h 0x%4h", pc, instr, mem_write_addr, mem_write_data);
-                            SB: $display("0x%8h (0x%8h) mem 0x%8h 0x%2h", pc, instr, mem_write_addr, mem_write_data);
-                            default: ;
-                        endcase
-                    end
-                    else begin
-                        if((mem_read_enable == 1) && (reg_addr != 0)) begin
-                            if(reg_addr < 10)
-                                $display("0x%8h (0x%8h) x%0d  0x%8h mem 0x%8h", pc, instr, reg_addr, reg_data, mem_read_addr);
-                            else
-                                $display("0x%8h (0x%8h) x%0d 0x%8h mem 0x%8h", pc, instr, reg_addr, reg_data, mem_read_addr);
-                        end
-                        else if((mem_read_enable == 0)) begin
-                            if(reg_addr == 0 || !reg_file_write_enable)
-                                $display("0x%8h (0x%8h) ",pc, instr);
-                            else begin
-                                if(reg_addr < 10)
-                                    $display("0x%8h (0x%8h) x%0d  0x%8h",pc, instr, reg_addr, reg_data);
-                                else
-                                    $display("0x%8h (0x%8h) x%0d 0x%8h",pc, instr, reg_addr, reg_data);
-                            end
-                        end
-                    end
-                end
-                #2;
-            end
-        end
-    end
-
-    initial begin  //burada clock sinyalini üretiyoruz
         clk = 0;
         forever #1 clk = ~clk;     //her 1 ns de clock sinyali değişiyor
     end
 
+
+// İŞLEMCİ RESETLENMEİ VE SİMÜLASYONUN BİTMESİ
     initial begin
-        rstn = 0;
+        rstn = 0; // işlemci resetleniyor
         #20;
-        rstn = 1; // 4 birim saniye sonra reset sinyali 1 oluyor ki program çalışmaya başlasın çünkü reset sinyali negatif edge ile çalışıyor
-                  // bu nedenle reset sinyali 0 olduğunda program reset halinde oluyor.
+        rstn = 1; // 20 birim saniye sonra işlemci resetten çıkıyor ve çalışmaya başlıyor.
 
-        #5000; //5000 birim saniye bekliyoruz
-
+        #10000; // 10000 birim saniye bekliyoruz, eğer sonsuz döngüye girersek simülasyon bir süre sonra kendiliğinden bitsin.
+        $display("-------------------------------------------------------------");
+        $display("Simulation timed out and forced to stop!");
+        $display("-------------------------------------------------------------");
         $finish;
+    end
+
+// SONSUZ DÖNGÜ DEDEKTÖRÜ
+    always @(posedge clk) begin
+        if (rstn && (instr == 32'h0000006f)) begin // Eğer 32'h0000006f komutu ile karşılaşırsak programın sonunda sonsuz döngüye girmişiz demektir.
+             // Simülasyonun log dosyasını tam yazması için çok kısa bekledik
+            //#1; 
+            $display("-------------------------------------------------------------");
+            $display("SUCCESS: Test End Reached (PC: 0x%h)", pc);
+            $display("-------------------------------------------------------------");
+            $finish;
+        end
+    end
+
+// LOGLAMA İŞLEMLERİ
+
+    always_comb begin
+        if(pc == 32'h80000000) begin
+            $display("0x%8h (0x%8h) ", pc, instr);
+        end
+    end
+    always @(posedge clk) begin
+        if (rstn && update && (pc != 0)) begin
+
+            // A) MEMORY WRITE (STORE) LOGLARI
+            if(mem_write_enable) begin
+                case(operation)
+                    SW: $display("0x%8h (0x%8h) mem 0x%8h 0x%8h", pc, instr, mem_write_addr, mem_write_data);
+                    SH: $display("0x%8h (0x%8h) mem 0x%8h 0x%4h", pc, instr, mem_write_addr, mem_write_data);
+                    SB: $display("0x%8h (0x%8h) mem 0x%8h 0x%2h", pc, instr, mem_write_addr, mem_write_data);
+                    default: ;
+                endcase
+            end
+            
+            // B) MEMORY READ (LOAD) LOGLARI
+            else if (mem_read_enable && (reg_addr != 0)) begin
+                // Tek haneli registerlar için hizalama (x1  vs x10)
+                if(reg_addr < 10)
+                    $display("0x%8h (0x%8h) x%0d  0x%8h mem 0x%8h", pc, instr, reg_addr, reg_data, mem_read_addr);
+                else
+                    $display("0x%8h (0x%8h) x%0d 0x%8h mem 0x%8h", pc, instr, reg_addr, reg_data, mem_read_addr);
+            end
+            
+            // C) NORMAL ALU/BRANCH LOGLARI
+            else begin
+                // Yazma yapmıyorsa (Branch/Nop vs.) veya x0'a yazıyorsa sadece PC ve Instr bas
+                if(reg_addr == 0 || !reg_file_write_enable)
+                    $display("0x%8h (0x%8h) ", pc, instr);
+                else begin
+                    if(reg_addr < 10)
+                        $display("0x%8h (0x%8h) x%0d  0x%8h", pc, instr, reg_addr, reg_data);
+                    else
+                        $display("0x%8h (0x%8h) x%0d 0x%8h", pc, instr, reg_addr, reg_data);
+                end
+            end
+        end
     end
 
     initial begin

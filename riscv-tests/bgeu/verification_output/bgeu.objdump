@@ -1,0 +1,57 @@
+
+/home/fatih/Desktop/RISCV32IB/riscv-tests/bgeu/build/bgeu.elf:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+80000000 <_start>:
+80000000:	00000013          	nop
+
+80000004 <_init>:
+80000004:	00000013          	nop
+
+80000008 <main>:
+80000008:	07a00093          	li	x1,122
+8000000c:	06200113          	li	x2,98
+80000010:	fb900193          	li	x3,-71
+80000014:	00000213          	li	x4,0
+80000018:	00000293          	li	x5,0
+8000001c:	00000413          	li	x8,0
+80000020:	00000493          	li	x9,0
+80000024:	0020f663          	bgeu	x1,x2,80000030 <label_taken_success>
+80000028:	00100413          	li	x8,1
+8000002c:	0080006f          	j	80000034 <test_not_taken>
+
+80000030 <label_taken_success>:
+80000030:	00100493          	li	x9,1
+
+80000034 <test_not_taken>:
+80000034:	0030f663          	bgeu	x1,x3,80000040 <label_not_taken_fail>
+80000038:	00100213          	li	x4,1
+8000003c:	0080006f          	j	80000044 <test_end>
+
+80000040 <label_not_taken_fail>:
+80000040:	00100293          	li	x5,1
+
+80000044 <test_end>:
+80000044:	0000006f          	j	80000044 <test_end>
+
+Disassembly of section .riscv.attributes:
+
+00000000 <.riscv.attributes>:
+   0:	2041                	.insn	2, 0x2041
+   2:	0000                	.insn	2, 0x0000
+   4:	7200                	.insn	2, 0x7200
+   6:	7369                	.insn	2, 0x7369
+   8:	01007663          	bgeu	x0,x16,14 <_start-0x7fffffec>
+   c:	0016                	.insn	2, 0x0016
+   e:	0000                	.insn	2, 0x0000
+  10:	7205                	.insn	2, 0x7205
+  12:	3376                	.insn	2, 0x3376
+  14:	6932                	.insn	2, 0x6932
+  16:	7032                	.insn	2, 0x7032
+  18:	5f31                	.insn	2, 0x5f31
+  1a:	627a                	.insn	2, 0x627a
+  1c:	3162                	.insn	2, 0x3162
+  1e:	3070                	.insn	2, 0x3070
+	...
