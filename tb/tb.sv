@@ -82,8 +82,8 @@ module tb ();
             if(mem_write_enable) begin
                 case(operation)
                     SW: $display("0x%8h (0x%8h) mem 0x%8h 0x%8h", pc, instr, mem_write_addr, mem_write_data);
-                    SH: $display("0x%8h (0x%8h) mem 0x%8h 0x%4h", pc, instr, mem_write_addr, mem_write_data);
-                    SB: $display("0x%8h (0x%8h) mem 0x%8h 0x%2h", pc, instr, mem_write_addr, mem_write_data);
+                    SH: $display("0x%8h (0x%8h) mem 0x%8h 0x%4h", pc, instr, mem_write_addr, mem_write_data[15:0]);
+                    SB: $display("0x%8h (0x%8h) mem 0x%8h 0x%2h", pc, instr, mem_write_addr, mem_write_data[7:0]);
                     default: ;
                 endcase
             end

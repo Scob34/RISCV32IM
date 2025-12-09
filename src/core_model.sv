@@ -51,7 +51,7 @@ module core_model
     //Instruction_Read_Comb
     logic [31:0] instruction_memory [MEM_SIZE-1:0]; // Intruction memory tanımı
     //initial $readmemh("./test/test.hex", instruction_memory, 0, MEM_SIZE); // Test dosyasını memory'e yüklüyoruz.
-    initial $readmemh("./riscv-tests/upper_imm/verification_output/upper_imm_pure.hex", instruction_memory, 0, MEM_SIZE);
+    initial $readmemh("./riscv-tests/store-load/verification_output/store-load_pure.hex", instruction_memory, 0, MEM_SIZE);
 
 
     logic [XLEN-1:0] instr_d_fetch;
@@ -418,7 +418,7 @@ module core_model
     assign data_memory_write_address_d_execute = rs1_data_d_execute + imm_data_d_execute;
 
     logic [XLEN-1:0] data_memory_read_address_d_execute;
-    assign data_memory_read_address_d_execute = rs1_data_d_execute;
+    assign data_memory_read_address_d_execute = rs1_data_d_execute + imm_data_d_execute;
 
     // OUTPUTLAR
 
@@ -625,23 +625,64 @@ module core_model
             ;
         else if(data_memory_write_enable_d_memory) begin
             case(operation_d_memory)
-                SB: data_memory[data_memory_write_address_d_memory[$clog2(MEM_SIZE)-1:0]][7:0] <= data_memory_write_data_d_memory[7:0];
-                SH: data_memory[data_memory_write_address_d_memory[$clog2(MEM_SIZE)-1:0]][15:0] <= data_memory_write_data_d_memory[15:0];
-                SW: data_memory[data_memory_write_address_d_memory[$clog2(MEM_SIZE)-1:0]] <= data_memory_write_data_d_memory;
+                SB:
+                    case(data_memory_write_address_d_memory[1:0])
+                        2'b00: data_memory[data_memory_write_address_d_memory[$clog2(MEM_SIZE)+1:2]][7:0]   <= data_memory_write_data_d_memory[7:0];
+                        2'b01: data_memory[data_memory_write_address_d_memory[$clog2(MEM_SIZE)+1:2]][15:8]  <= data_memory_write_data_d_memory[7:0];
+                        2'b10: data_memory[data_memory_write_address_d_memory >> 2][23:16] <= data_memory_write_data_d_memory[7:0];
+                        2'b11: data_memory[data_memory_write_address_d_memory >> 2][31:24] <= data_memory_write_data_d_memory[7:0];
+                    endcase
+                SH:
+                    case(data_memory_write_address_d_memory[1])
+                        1'b0: data_memory[data_memory_write_address_d_memory >> 2][15:0] <= data_memory_write_data_d_memory[15:0];
+                        1'b1: data_memory[data_memory_write_address_d_memory[$clog2(MEM_SIZE)+1:2]][31:16] <= data_memory_write_data_d_memory[15:0];
+                    endcase
+                SW: data_memory[data_memory_write_address_d_memory[$clog2(MEM_SIZE)+1:2]] <= data_memory_write_data_d_memory;
+                //  data_memory[data_memory_write_address_d_memory >> 2] <= data_memory_write_data_d_memory; şeklinde de olur.
                 default: ;
             endcase
         end
     end
 
+    // yukarıda data memory'den okuma yapılırken adres hesaplama bazı örneklerde ">> 2" ile bazılarında ise "[$clog2(MEM_SIZE)+1:2]" ile yaptım
+    // bunun sebebi iki örneği de görmek ve sonrasında unutmamak için. $clog2 dinamik olarak parametre oluşturmak gerektiğinde daha kullanışlı.
+    // diğer türlü >> 2 kullanımı daha pratik.
+
+    // LOAD BLOCK İÇİN ADRES HESAPLAMASI
+
+    localparam DATA_MEMORY_READ_ADDRESS_WIDTH = $clog2(MEM_SIZE);   
+    logic [DATA_MEMORY_READ_ADDRESS_WIDTH-1:0] addr_index;
+    assign addr_index = data_memory_read_address_d_memory[DATA_MEMORY_READ_ADDRESS_WIDTH+1:2];
+
     always_comb begin : LOAD_BLOCK
         data_memory_read_data_d_memory = 0;
-
+        
         case(operation_d_memory)
-            LB:  data_memory_read_data_d_memory = {{24{data_memory[data_memory_read_address_d_memory[$clog2(MEM_SIZE)-1:0]][7]}}, data_memory[data_memory_read_address_d_memory[$clog2(MEM_SIZE)-1:0]][7:0]};
-            LH:  data_memory_read_data_d_memory = {{16{data_memory[data_memory_read_address_d_memory[$clog2(MEM_SIZE)-1:0]][15]}}, data_memory[data_memory_read_address_d_memory[$clog2(MEM_SIZE)-1:0]][15:0]};
-            LW:  data_memory_read_data_d_memory = data_memory[data_memory_read_address_d_memory[$clog2(MEM_SIZE)-1:0]];
-            LBU: data_memory_read_data_d_memory = {24'b0, data_memory[data_memory_read_address_d_memory[$clog2(MEM_SIZE)-1:0]][7:0]};
-            LHU: data_memory_read_data_d_memory = {16'b0, data_memory[data_memory_read_address_d_memory[$clog2(MEM_SIZE)-1:0]][15:0]};
+            LB:
+                case(data_memory_read_address_d_memory[1:0])
+                    2'b00: data_memory_read_data_d_memory = {{24{data_memory[addr_index][7]}}, data_memory[addr_index][7:0]};
+                    2'b01: data_memory_read_data_d_memory = {{24{data_memory[addr_index][15]}}, data_memory[addr_index][15:8]};
+                    2'b10: data_memory_read_data_d_memory = {{24{data_memory[addr_index][23]}}, data_memory[addr_index][23:16]};
+                    2'b11: data_memory_read_data_d_memory = {{24{data_memory[addr_index][31]}}, data_memory[addr_index][31:24]};
+                endcase
+            LH:
+                case(data_memory_read_address_d_memory[1])
+                    1'b0: data_memory_read_data_d_memory = {{16{data_memory[addr_index][15]}}, data_memory[addr_index][15:0]};
+                    1'b1: data_memory_read_data_d_memory = {{16{data_memory[addr_index][31]}}, data_memory[addr_index][31:16]};
+                endcase
+            LW:  data_memory_read_data_d_memory = data_memory[addr_index];
+            LBU:
+                case(data_memory_read_address_d_memory[1:0])
+                    2'b00: data_memory_read_data_d_memory = {24'b0, data_memory[addr_index][7:0]};
+                    2'b01: data_memory_read_data_d_memory = {24'b0, data_memory[addr_index][15:8]};
+                    2'b10: data_memory_read_data_d_memory = {24'b0, data_memory[addr_index][23:16]};
+                    2'b11: data_memory_read_data_d_memory = {24'b0, data_memory[addr_index][31:24]};
+                endcase
+            LHU:
+                case(data_memory_read_address_d_memory[1])
+                    1'b0: data_memory_read_data_d_memory = {16'b0, data_memory[addr_index][15:0]};
+                    1'b1: data_memory_read_data_d_memory = {16'b0, data_memory[addr_index][31:16]};
+                endcase
             default: ;
         endcase
     end

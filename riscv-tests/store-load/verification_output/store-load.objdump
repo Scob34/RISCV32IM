@@ -1,0 +1,63 @@
+
+/home/fatih/Desktop/RISCV32IB/riscv-tests/store-load/build/store-load.elf:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+80000000 <_start>:
+80000000:	00000013          	nop
+
+80000004 <_init>:
+80000004:	00000013          	nop
+
+80000008 <main>:
+80000008:	800010b7          	lui	x1,0x80001
+
+8000000c <test_signed_unsigned>:
+8000000c:	fff00293          	li	x5,-1
+80000010:	00508023          	sb	x5,0(x1) # 80001000 <_end+0xfa0>
+80000014:	00008303          	lb	x6,0(x1)
+80000018:	0000c383          	lbu	x7,0(x1)
+
+8000001c <test_little_endian_write_read>:
+8000001c:	112235b7          	lui	x11,0x11223
+80000020:	34458593          	addi	x11,x11,836 # 11223344 <_start-0x6eddccbc>
+80000024:	00b0a223          	sw	x11,4(x1)
+80000028:	00408603          	lb	x12,4(x1)
+8000002c:	00508683          	lb	x13,5(x1)
+80000030:	00608703          	lb	x14,6(x1)
+80000034:	00708783          	lb	x15,7(x1)
+
+80000038 <test_parca_parca_yazma>:
+80000038:	0aa00a13          	li	x20,170
+8000003c:	01408823          	sb	x20,16(x1)
+80000040:	0bb00a93          	li	x21,187
+80000044:	015088a3          	sb	x21,17(x1)
+80000048:	0cc00b13          	li	x22,204
+8000004c:	01608923          	sb	x22,18(x1)
+80000050:	0dd00b93          	li	x23,221
+80000054:	017089a3          	sb	x23,19(x1)
+80000058:	0100ac03          	lw	x24,16(x1)
+
+8000005c <test_end>:
+8000005c:	0000006f          	j	8000005c <test_end>
+
+Disassembly of section .riscv.attributes:
+
+00000000 <.riscv.attributes>:
+   0:	2041                	.insn	2, 0x2041
+   2:	0000                	.insn	2, 0x0000
+   4:	7200                	.insn	2, 0x7200
+   6:	7369                	.insn	2, 0x7369
+   8:	01007663          	bgeu	x0,x16,14 <_start-0x7fffffec>
+   c:	0016                	.insn	2, 0x0016
+   e:	0000                	.insn	2, 0x0000
+  10:	7205                	.insn	2, 0x7205
+  12:	3376                	.insn	2, 0x3376
+  14:	6932                	.insn	2, 0x6932
+  16:	7032                	.insn	2, 0x7032
+  18:	5f31                	.insn	2, 0x5f31
+  1a:	627a                	.insn	2, 0x627a
+  1c:	3162                	.insn	2, 0x3162
+  1e:	3070                	.insn	2, 0x3070
+	...
