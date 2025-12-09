@@ -1,0 +1,50 @@
+
+/home/fatih/Desktop/RISCV32IB/riscv-tests/alu_hazards/build/alu_hazards.elf:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+80000000 <_start>:
+80000000:	00000013          	nop
+
+80000004 <_init>:
+80000004:	00000013          	nop
+
+80000008 <main>:
+80000008:	00a00093          	li	x1,10
+8000000c:	01400113          	li	x2,20
+80000010:	00500193          	li	x3,5
+80000014:	00208233          	add	x4,x1,x2
+80000018:	403202b3          	sub	x5,x4,x3
+8000001c:	00108333          	add	x6,x1,x1
+80000020:	00000013          	nop
+80000024:	002343b3          	xor	x7,x6,x2
+80000028:	06400413          	li	x8,100
+8000002c:	008404b3          	add	x9,x8,x8
+80000030:	00526533          	or	x10,x4,x5
+80000034:	0ff57593          	zext.b	x11,x10
+80000038:	00259613          	slli	x12,x11,0x2
+8000003c:	00b606b3          	add	x13,x12,x11
+
+80000040 <test_end>:
+80000040:	0000006f          	j	80000040 <test_end>
+
+Disassembly of section .riscv.attributes:
+
+00000000 <.riscv.attributes>:
+   0:	2041                	.insn	2, 0x2041
+   2:	0000                	.insn	2, 0x0000
+   4:	7200                	.insn	2, 0x7200
+   6:	7369                	.insn	2, 0x7369
+   8:	01007663          	bgeu	x0,x16,14 <_start-0x7fffffec>
+   c:	0016                	.insn	2, 0x0016
+   e:	0000                	.insn	2, 0x0000
+  10:	7205                	.insn	2, 0x7205
+  12:	3376                	.insn	2, 0x3376
+  14:	6932                	.insn	2, 0x6932
+  16:	7032                	.insn	2, 0x7032
+  18:	5f31                	.insn	2, 0x5f31
+  1a:	627a                	.insn	2, 0x627a
+  1c:	3162                	.insn	2, 0x3162
+  1e:	3070                	.insn	2, 0x3070
+	...

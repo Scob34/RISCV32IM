@@ -1,0 +1,43 @@
+
+/home/fatih/Desktop/RISCV32IB/riscv-tests/load_use_hazard/build/load_use_hazard.elf:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+80000000 <_start>:
+80000000:	00000013          	nop
+
+80000004 <_init>:
+80000004:	00000013          	nop
+
+80000008 <main>:
+80000008:	800010b7          	lui	x1,0x80001
+8000000c:	aabb02b7          	lui	x5,0xaabb0
+80000010:	aabbd337          	lui	x6,0xaabbd
+80000014:	cdd30313          	addi	x6,x6,-803 # aabbccdd <_end+0x2abbccad>
+80000018:	0060a023          	sw	x6,0(x1) # 80001000 <_end+0xfd0>
+8000001c:	0000d203          	lhu	x4,0(x1)
+80000020:	005203b3          	add	x7,x4,x5
+
+80000024 <test_end>:
+80000024:	0000006f          	j	80000024 <test_end>
+
+Disassembly of section .riscv.attributes:
+
+00000000 <.riscv.attributes>:
+   0:	2041                	.insn	2, 0x2041
+   2:	0000                	.insn	2, 0x0000
+   4:	7200                	.insn	2, 0x7200
+   6:	7369                	.insn	2, 0x7369
+   8:	01007663          	bgeu	x0,x16,14 <_start-0x7fffffec>
+   c:	0016                	.insn	2, 0x0016
+   e:	0000                	.insn	2, 0x0000
+  10:	7205                	.insn	2, 0x7205
+  12:	3376                	.insn	2, 0x3376
+  14:	6932                	.insn	2, 0x6932
+  16:	7032                	.insn	2, 0x7032
+  18:	5f31                	.insn	2, 0x5f31
+  1a:	627a                	.insn	2, 0x627a
+  1c:	3162                	.insn	2, 0x3162
+  1e:	3070                	.insn	2, 0x3070
+	...
