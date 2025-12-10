@@ -112,9 +112,48 @@ module tb ();
         end
     end
 
+// DUMP FILE ÜRETİMİ
     initial begin
         $dumpfile("dump.vcd");
         $dumpvars(0,tb);
     end
+
+// CPI HESAPLAMA
+    longint total_cycles = 0; // toplam geçen döngü sayısı yani zaman
+    longint committed_instructions = 0; // gerçekten tamamlanan yani flush olmayan talimat sayısı
+
+    always @(posedge clk) begin
+        if (!rstn) begin 
+            total_cycles <= 0;
+            committed_instructions <= 0;
+        end 
+        else begin
+            // Toplam Döngü Sayacı, her döngüde artar
+            total_cycles <= total_cycles + 1; 
+
+            // Tamamlanan Talimat Sayacı, sadece update sinyali aktif ve pc 0 değilse artar
+            if (update && (pc != 0)) begin
+                committed_instructions <= committed_instructions + 1;
+            end
+        end
+    end
+
+    // Simülasyon sonunda CPI değerini hesaplayıp yazdırma
+    final begin
+        real cpi;
+        cpi = real'(total_cycles) / real'(committed_instructions);
+        $display("-------------------------------------------------------------");
+        if(committed_instructions > 0) begin
+            $display("Total Cycles: %0d", total_cycles);
+            $display("Committed Instructions: %0d", committed_instructions);
+            $display("CPI: %0.4f", cpi);
+        end
+        else begin
+            $display("HATA: Hiçbir Komut Tamamlanamadı!");
+            $display("Total Cycles: %0d", total_cycles);
+        end
+        $display("-------------------------------------------------------------");
+    end
+
 
 endmodule
