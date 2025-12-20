@@ -11,8 +11,8 @@ Disassembly of section .text:
 80000004:	00000013          	nop
 
 80000008 <main>:
-80000008:	00300a13          	li	x20,3
-8000000c:	00200a93          	li	x21,2
+80000008:	00a00a13          	li	x20,10
+8000000c:	00a00a93          	li	x21,10
 80000010:	00000513          	li	x10,0
 80000014:	00000593          	li	x11,0
 80000018:	00000613          	li	x12,0
@@ -24,14 +24,13 @@ Disassembly of section .text:
 80000024 <inner_loop>:
 80000024:	00160613          	addi	x12,x12,1
 80000028:	00150513          	addi	x10,x10,1
-8000002c:	ff451ce3          	bne	x10,x20,80000024 <inner_loop>
-80000030:	001f0f13          	addi	x30,x30,1
+8000002c:	001f0f13          	addi	x30,x30,1
+80000030:	ff451ae3          	bne	x10,x20,80000024 <inner_loop>
 80000034:	00158593          	addi	x11,x11,1
 80000038:	ff5594e3          	bne	x11,x21,80000020 <outer_loop>
-8000003c:	001f0f13          	addi	x30,x30,1
 
-80000040 <test_end>:
-80000040:	0000006f          	j	80000040 <test_end>
+8000003c <test_end>:
+8000003c:	0000006f          	j	8000003c <test_end>
 
 Disassembly of section .riscv.attributes:
 

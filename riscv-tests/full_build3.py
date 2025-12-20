@@ -9,7 +9,7 @@ import re
 # ==========================================
 PREFIX = "riscv64-unknown-elf-"
 AS_CMD = f"{PREFIX}as"
-AS_FLAGS = ["-march=rv32izbb", "-mabi=ilp32"]
+AS_FLAGS = ["-march=rv32im", "-mabi=ilp32"]
 
 LD_CMD = f"{PREFIX}ld"
 LD_FLAGS = ["-m", "elf32lriscv", "-T", "linker.ld"] 
@@ -22,7 +22,7 @@ NM_CMD = f"{PREFIX}nm"  # Sembol (Etiket) adreslerini okuyan araç
 SPIKE_CMD = "spike"
 SPIKE_FLAGS_BASE = [
     "-d", "-l", "--log-commits", 
-    "-m0x7ffff000:0x20000000", "--isa=rv32izbb"
+    "-m0x7ffff000:0x20000000", "--isa=rv32im"
 ]
 
 # KODUN DURACAĞI ETİKET İSMİ

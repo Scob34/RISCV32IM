@@ -119,8 +119,8 @@ module tb ();
     end
 
 // CPI HESAPLAMA
-    longint total_cycles = 0; // toplam geçen döngü sayısı yani zaman
-    longint committed_instructions = 0; // gerçekten tamamlanan yani flush olmayan talimat sayısı
+    longint total_cycles; // toplam geçen döngü sayısı yani zaman
+    longint committed_instructions; // gerçekten tamamlanan yani flush olmayan talimat sayısı
 
     always @(posedge clk) begin
         if (!rstn) begin 

@@ -40,7 +40,7 @@ module core_model
         end
         else if(is_Stall_PC_FF) begin
             pc_q_fetch <= pc_q_fetch;
-            update_q_fetch <= 0;
+            update_q_fetch <= update_q_fetch;
         end
         else begin
             pc_q_fetch <= pc_d_fetch;
@@ -50,7 +50,8 @@ module core_model
 
     //Instruction_Read_Comb
     logic [31:0] instruction_memory [MEM_SIZE-1:0]; // Intruction memory tanımı
-    initial $readmemh("./riscv-tests/nested_branch/verification_output/nested_branch_pure.hex", instruction_memory, 0, MEM_SIZE);
+    //initial $readmemh("./riscv-tests/mul/verification_output/mul_pure.hex", instruction_memory, 0, MEM_SIZE);
+    initial $readmemh("instruction.hex", instruction_memory, 0, MEM_SIZE); // script için instruction yükleme
 
 
     logic [XLEN-1:0] instr_d_fetch;
@@ -244,34 +245,44 @@ module core_model
                     default:;
                 endcase
             end
-            OpcodeOp: begin
+            OpcodeOp_Mext: begin
                 register_file_write_enable_d_decode = 1;
 
-                case(instr_d_decode[14:12])
-                    F3_ADD_SUB: begin
-                        case(instr_d_decode[31:25])
-                            F7_ADD: operation_d_decode = ADD;
-                            F7_SUB: operation_d_decode = SUB;
+                case(instr_d_decode[31:25])
+                    F7_R_TYPE: begin
+                        case(instr_d_decode[14:12])
+                            F3_ADD_SUB: operation_d_decode = ADD;
+                            F3_SLL:  operation_d_decode = SLL;
+                            F3_SLT:  operation_d_decode = SLT;
+                            F3_SLTU: operation_d_decode = SLTU;
+                            F3_XOR:  operation_d_decode = XOR;
+                            F3_SRL_SRA: operation_d_decode = SRL;
+                            F3_OR:   operation_d_decode = OR;
+                            F3_AND:  operation_d_decode = AND;
+                        endcase
+                    end
+                    F7_SUB_SRA: begin
+                        case(instr_d_decode[14:12])
+                            F3_ADD_SUB: operation_d_decode = SUB;
+                            F3_SRL_SRA: operation_d_decode = SRA;
                             default: ;
                         endcase
                     end
-                    F3_SLL:  operation_d_decode = SLL;
-                    F3_SLT:  operation_d_decode = SLT;
-                    F3_SLTU: operation_d_decode = SLTU;
-                    F3_XOR:  operation_d_decode = XOR;
-                    F3_OR:   operation_d_decode = OR;
-                    F3_AND:  operation_d_decode = AND;
-                    F3_SRL_SRA: begin
-                        case(instr_d_decode[31:25])
-                            F7_SRL: operation_d_decode = SRL;
-                            F7_SRA: operation_d_decode = SRA;
-                            default: ;
+                    F7_MEXT: begin
+                        case(instr_d_decode[14:12])
+                            F3_MUL: operation_d_decode = MUL;
+                            F3_MULH: operation_d_decode = MULH;
+                            F3_MULHSU: operation_d_decode = MULHSU;
+                            F3_MULHU: operation_d_decode = MULHU;
+                            F3_DIV: operation_d_decode = DIV;
+                            F3_DIVU: operation_d_decode = DIVU;
+                            F3_REM: operation_d_decode = REM;
+                            F3_REMU: operation_d_decode = REMU;
                         endcase
                     end
                     default: ;
-                endcase
+                endcase                
             end
-
             default: ;
         endcase
     end
@@ -314,6 +325,28 @@ module core_model
             rs2_data_q_decode <= 0;
 
             operation_q_decode <= OPERATION_UNKNOWN;
+        end
+        else if(is_Stall_ID_IEX_Register) begin
+            instr_q_decode <= instr_q_decode;
+            pc_q_decode <= pc_q_decode;
+            update_q_decode <= update_q_decode;
+
+            imm_data_q_decode <= imm_data_q_decode;
+            shamt_data_q_decode <= shamt_data_q_decode;
+
+            register_file_write_enable_q_decode <= register_file_write_enable_q_decode;
+            data_memory_write_enable_q_decode <= data_memory_write_enable_q_decode;
+            data_memory_read_enable_q_decode <= data_memory_read_enable_q_decode;
+
+            rd_q_decode <= rd_q_decode;
+
+            rs1_addr_q_decode <= rs1_addr_q_decode;
+            rs2_addr_q_decode <= rs2_addr_q_decode;
+
+            rs1_data_q_decode <= rs1_data_q_decode;
+            rs2_data_q_decode <= rs2_data_q_decode;
+
+            operation_q_decode <= operation_q_decode;
         end
         else begin
             instr_q_decode <= instr_d_decode;
@@ -441,21 +474,23 @@ module core_model
 
     // EXECUTE BLOCK
 
-    always_comb begin : EXECUTE_BLOCK
+    logic [XLEN-1:0] alu_result_d_execute;
+
+    always_comb begin : ALU_BLOCK
         jump_pc_valid_d_execute = 0;
         jump_pc_d_execute = 0;
-        rd_data_d_execute = 0;
+        alu_result_d_execute = 0;
 
         case(operation_d_execute)
-            LUI:   rd_data_d_execute = imm_data_d_execute;
-            AUIPC: rd_data_d_execute = pc_d_execute + imm_data_d_execute;
+            LUI:   alu_result_d_execute = imm_data_d_execute;
+            AUIPC: alu_result_d_execute = pc_d_execute + imm_data_d_execute;
             JAL: begin
-                rd_data_d_execute = pc_d_execute + 4;
+                alu_result_d_execute = pc_d_execute + 4;
                 jump_pc_valid_d_execute = 1;
                 jump_pc_d_execute = pc_d_execute + imm_data_d_execute;
             end
             JALR: begin
-                rd_data_d_execute = pc_d_execute + 4;
+                alu_result_d_execute = pc_d_execute + 4;
                 jump_pc_valid_d_execute = 1;
                 jump_pc_d_execute = (rs1_data_d_execute + imm_data_d_execute) & ~1;
             end
@@ -495,35 +530,177 @@ module core_model
                     jump_pc_d_execute = pc_d_execute + imm_data_d_execute;
                 end
             end
-            ADDI:  rd_data_d_execute = $signed(rs1_data_d_execute) + $signed(imm_data_d_execute);
-            SLTI:  if($signed(rs1_data_d_execute) < $signed(imm_data_d_execute)) rd_data_d_execute = 1;
-            SLTIU: if(rs1_data_d_execute < imm_data_d_execute) rd_data_d_execute = 1;
-            XORI:  rd_data_d_execute = rs1_data_d_execute ^ imm_data_d_execute;
-            ORI:   rd_data_d_execute = rs1_data_d_execute | imm_data_d_execute;
-            ANDI:  rd_data_d_execute = rs1_data_d_execute & imm_data_d_execute;
-            SLLI:  rd_data_d_execute = rs1_data_d_execute << shamt_data_d_execute;
-            SRLI:  rd_data_d_execute = rs1_data_d_execute >> shamt_data_d_execute;
-            SRAI:  rd_data_d_execute = $signed(rs1_data_d_execute) >>> shamt_data_d_execute;
-            ADD:   rd_data_d_execute = $signed(rs1_data_d_execute) + $signed(rs2_data_d_execute);
-            SUB:   rd_data_d_execute = $signed(rs1_data_d_execute) - $signed(rs2_data_d_execute);
-            SLL:   rd_data_d_execute = rs1_data_d_execute << rs2_data_d_execute[4:0];
-            SLT:   if($signed(rs1_data_d_execute) < $signed(rs2_data_d_execute)) rd_data_d_execute = 1;
-            SLTU:  if(rs1_data_d_execute < rs2_data_d_execute) rd_data_d_execute = 1;
-            XOR:   rd_data_d_execute = rs1_data_d_execute ^ rs2_data_d_execute;
-            SRL:   rd_data_d_execute = rs1_data_d_execute >> rs2_data_d_execute[4:0];
-            SRA:   rd_data_d_execute = $signed(rs1_data_d_execute) >>> rs2_data_d_execute[4:0];
-            OR:    rd_data_d_execute = rs1_data_d_execute | rs2_data_d_execute;
-            AND:   rd_data_d_execute = rs1_data_d_execute & rs2_data_d_execute;
-            CLZ:   rd_data_d_execute = clz_function(rs1_data_d_execute);
-            CPOP:  rd_data_d_execute = cpop_function(rs1_data_d_execute);
-            CTZ:   rd_data_d_execute = ctz_function(rs1_data_d_execute);
+            ADDI:  alu_result_d_execute = $signed(rs1_data_d_execute) + $signed(imm_data_d_execute);
+            SLTI:  if($signed(rs1_data_d_execute) < $signed(imm_data_d_execute)) alu_result_d_execute = 1;
+            SLTIU: if(rs1_data_d_execute < imm_data_d_execute) alu_result_d_execute = 1;
+            XORI:  alu_result_d_execute = rs1_data_d_execute ^ imm_data_d_execute;
+            ORI:   alu_result_d_execute = rs1_data_d_execute | imm_data_d_execute;
+            ANDI:  alu_result_d_execute = rs1_data_d_execute & imm_data_d_execute;
+            SLLI:  alu_result_d_execute = rs1_data_d_execute << shamt_data_d_execute;
+            SRLI:  alu_result_d_execute = rs1_data_d_execute >> shamt_data_d_execute;
+            SRAI:  alu_result_d_execute = $signed(rs1_data_d_execute) >>> shamt_data_d_execute;
+            ADD:   alu_result_d_execute = $signed(rs1_data_d_execute) + $signed(rs2_data_d_execute);
+            SUB:   alu_result_d_execute = $signed(rs1_data_d_execute) - $signed(rs2_data_d_execute);
+            SLL:   alu_result_d_execute = rs1_data_d_execute << rs2_data_d_execute[4:0];
+            SLT:   if($signed(rs1_data_d_execute) < $signed(rs2_data_d_execute)) alu_result_d_execute = 1;
+            SLTU:  if(rs1_data_d_execute < rs2_data_d_execute) alu_result_d_execute = 1;
+            XOR:   alu_result_d_execute = rs1_data_d_execute ^ rs2_data_d_execute;
+            SRL:   alu_result_d_execute = rs1_data_d_execute >> rs2_data_d_execute[4:0];
+            SRA:   alu_result_d_execute = $signed(rs1_data_d_execute) >>> rs2_data_d_execute[4:0];
+            OR:    alu_result_d_execute = rs1_data_d_execute | rs2_data_d_execute;
+            AND:   alu_result_d_execute = rs1_data_d_execute & rs2_data_d_execute;
+            CLZ:   alu_result_d_execute = clz_function(rs1_data_d_execute);
+            CPOP:  alu_result_d_execute = cpop_function(rs1_data_d_execute);
+            CTZ:   alu_result_d_execute = ctz_function(rs1_data_d_execute);
             default: ;
         endcase
     end
 
+    // M-EXTENSION UNIT
+
+    logic [XLEN-1:0] multiplicant; // çarpılan
+    assign multiplicant = rs1_data_d_execute;
+    logic [XLEN-1:0] multiplicant_register; // çarpılan register
+
+    logic [XLEN-1:0] multiplier; // çarpan
+    assign multiplier = rs2_data_d_execute;
+    logic [XLEN*2 -1:0] product_register; // 64 bit sonuç registerı
+
+    logic is_MEXT_op;
+    assign is_MEXT_op = (operation_d_execute == MUL || operation_d_execute == MULH || operation_d_execute == MULHSU || operation_d_execute == MULHU ||
+                         operation_d_execute == DIV || operation_d_execute == DIVU || operation_d_execute == REM || operation_d_execute == REMU);
+    
+    logic [5:0] counter;
+    Mext_State_enum MEXT_state;
+    Mext_State_enum MEXT_next_state;
+    logic sign_multiplicand;
+    logic sign_multiplicand_register;
+
+    logic sign_multiplier;
+    logic sign_multiplier_register;
+    logic is_busy_d_execute;
+
+    always_comb begin : SIGN_MULTIPLICANT_FIND
+        sign_multiplicand = 0;
+        sign_multiplier = 0;
+        if(is_MEXT_op) begin
+            case(operation_d_execute)
+                MUL, MULH, DIV, REM: begin
+                    if(multiplicant[XLEN-1] == 1)
+                        sign_multiplicand = 1;
+                    if(multiplier[XLEN-1] == 1)
+                        sign_multiplier = 1;
+                end
+                MULHSU: begin
+                    if(multiplicant[XLEN-1] == 1)
+                        sign_multiplicand = 1;
+                end
+                default: ;
+            endcase
+        end
+    end
+
+    always_comb begin: FINITE_STATE_MACHINE
+        MEXT_next_state = MEXT_state;
+        is_busy_d_execute = 0;
+
+        case(MEXT_state)
+            IDLE: begin
+                if(is_MEXT_op) begin
+                    MEXT_next_state = BUSY;
+                    is_busy_d_execute = 1;
+                end
+                else begin
+                    MEXT_next_state = IDLE;
+                end
+            end
+            BUSY: begin
+                MEXT_next_state = (counter == 0) ? DONE : BUSY;
+                is_busy_d_execute = 1;
+            end
+            DONE: begin
+                MEXT_next_state = IDLE;
+                is_busy_d_execute = 0;
+            end
+            default: MEXT_next_state = IDLE;
+        endcase
+    end
+
+    always_comb begin: MUL_RESULT_SECIM_DEVRESI
+        mul_result_d_execute = 0;
+        case(operation_d_execute)
+            MUL:   mul_result_d_execute = product_register_final[XLEN-1:0];
+            MULH:  mul_result_d_execute = product_register_final[XLEN*2-1:XLEN];
+            MULHSU:mul_result_d_execute = product_register_final[XLEN*2-1:XLEN];
+            MULHU: mul_result_d_execute = product_register_final[XLEN*2-1:XLEN];
+            default: ;
+        endcase
+    end
+
+    always_ff @(posedge clk or negedge rstn) begin: STATE_REGISTER
+        if(!rstn)
+            MEXT_state <= IDLE;
+        else
+            MEXT_state <= MEXT_next_state;
+    end
+
+    
+    
+
+    //Multiplication Block
+
+    logic [XLEN:0] sum; // 33 bitlik geçici toplam değişkeni. Taşma bitini kaybetmemek için bunu kullanıcaz.
+    assign sum = {1'b0, product_register[XLEN*2-1:XLEN]} + (product_register[0] ? {1'b0,multiplicant_register} : 0);
+
+    logic [XLEN*2 -1:0] product_register_final;
+    assign product_register_final = (sign_multiplier_register ^ sign_multiplicand_register) ? (~product_register + 1) : product_register;
+
+    logic [XLEN-1:0] mul_result_d_execute;
+
+    always_ff @(posedge clk or negedge rstn) begin: RESULT_REGISTER_64_BIT
+        if(!rstn) begin
+            product_register <= 0;
+            counter <= XLEN;
+            multiplicant_register <= 0;
+            sign_multiplicand_register <= 0;
+            sign_multiplier_register <= 0;
+        end
+        else begin
+            case(MEXT_state)
+                IDLE: begin
+                    product_register[XLEN*2 -1: XLEN] <= 0;
+                    product_register[XLEN -1:0] <= (sign_multiplier) ? (~multiplier + 1) : multiplier;
+                    multiplicant_register <= (sign_multiplicand) ? (~multiplicant + 1) : multiplicant;
+                    sign_multiplicand_register <= sign_multiplicand;
+                    sign_multiplier_register <= sign_multiplier;
+                    counter <= XLEN;
+                end
+                BUSY: begin
+                    if(counter > 0) begin
+                        if(product_register[0] == 1) begin
+                            product_register <= {sum, product_register[XLEN-1:1]};
+                            counter <= counter - 1;
+                        end
+                        else begin
+                            product_register <= product_register >> 1;
+                            counter <= counter - 1;
+                        end
+                    end
+                end
+                DONE: begin
+                    ;
+                end
+                UNKNOWN_MEXT_STATE: product_register <= 64'hFFFF_FFFF_FFFF_FFFF; // beklenmedik durum
+            endcase
+        end
+    end
+
+    // EX/MEM REGISTER İÇİN RD_DATA SEÇİMİ
+    assign rd_data_d_execute = (is_MEXT_op) ? mul_result_d_execute : alu_result_d_execute;
+
     // EX/MEM REGISTER
     always_ff @(posedge clk or negedge rstn) begin : EX_MEM_REGISTER
-        if(!rstn) begin
+        if(!rstn || is_Flush_EX_MEM_Register) begin
             instr_q_execute <= 0;
             pc_q_execute <= 0;
             update_q_execute <= 0;
@@ -802,28 +979,34 @@ module core_model
     logic is_Stall_PC_FF;
     logic is_Stall_IF_ID_Register;
 
+    logic is_Stall_ID_IEX_Register;
+    logic is_Flush_EX_MEM_Register;
+
     always_comb begin : FLUSH_STALL_BLOCK
         is_Flush_IF_ID_Register = 0;
         is_Flush_ID_IEX_Register = 0;
+        is_Flush_EX_MEM_Register = 0;
 
         is_Stall_PC_FF = 0;
         is_Stall_IF_ID_Register = 0;
+        is_Stall_ID_IEX_Register = 0;
 
         if(jump_pc_valid_d_execute) begin
             is_Flush_IF_ID_Register = 1;
             is_Flush_ID_IEX_Register = 1;
-
-            is_Stall_PC_FF = 0;
-            is_Stall_IF_ID_Register = 0;
         end
         else if(((rs1_addr_d_decode == rd_d_execute) || (rs2_addr_d_decode == rd_d_execute)) && (rd_d_execute != 0) && data_memory_read_enable_d_execute) begin
-            is_Flush_IF_ID_Register = 0;
             is_Flush_ID_IEX_Register = 1;
 
             is_Stall_PC_FF = 1;
             is_Stall_IF_ID_Register = 1;
         end
-        else ;
+        else if(is_busy_d_execute) begin
+            is_Stall_PC_FF = 1;
+            is_Stall_IF_ID_Register = 1;
+            is_Stall_ID_IEX_Register = 1;
+            is_Flush_EX_MEM_Register = 1;
+        end
     end
 
 //////////////////////////////////////////////////////////////////////////DEBUG OUTPUTS///////////////////////////////////////////////////////////////////////////////

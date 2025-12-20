@@ -5,7 +5,7 @@ riscv-tests/**/build/
 *.aux
 *.glo
 *.idx
-*.log
+*slides.log
 *.toc
 *.ist
 *.acn

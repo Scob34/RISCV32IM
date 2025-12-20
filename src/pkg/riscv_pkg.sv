@@ -238,7 +238,7 @@ package riscv_pkg;
   localparam OpcodeStoreFp = 7'b01_001_11;
   localparam OpcodeCustom1 = 7'b01_010_11;
   localparam OpcodeAmo = 7'b01_011_11;
-  localparam OpcodeOp = 7'b01_100_11;
+  localparam OpcodeOp_Mext = 7'b01_100_11;
   localparam OpcodeLui = 7'b01_101_11;
   localparam OpcodeOp32 = 7'b01_110_11;
   // Quadrant 2
@@ -1011,7 +1011,7 @@ package riscv_pkg;
     localparam F3_OR   = 3'b110;
     localparam F3_AND  = 3'b111;
 
-    localparam F7_ADD  = 7'b0000000;
+    /*localparam F7_ADD  = 7'b0000000;
     localparam F7_SUB  = 7'b0100000;
     localparam F7_SLL  = 7'b0000000;
     localparam F7_SLT  = 7'b0000000;
@@ -1020,7 +1020,24 @@ package riscv_pkg;
     localparam F7_SRL  = 7'b0000000;
     localparam F7_SRA  = 7'b0100000;
     localparam F7_OR   = 7'b0000000;
-    localparam F7_AND  = 7'b0000000;
+    localparam F7_AND  = 7'b0000000;*/
+
+    localparam F7_R_TYPE = 7'b0000000;
+    localparam F7_SUB_SRA = 7'b0100000;
+
+    // M Extension Opcode Funct7 ve Funct3 değeleri
+
+    localparam OpcodeMEXT = 7'b0110011;
+    localparam F7_MEXT = 7'b0000001;
+
+    localparam F3_MUL  = 3'b000;
+    localparam F3_MULH = 3'b001;
+    localparam F3_MULHSU = 3'b010;
+    localparam F3_MULHU = 3'b011;
+    localparam F3_DIV  = 3'b100;
+    localparam F3_DIVU = 3'b101;
+    localparam F3_REM  = 3'b110;
+    localparam F3_REMU = 3'b111;
 
 
     typedef struct packed { 
@@ -1071,6 +1088,14 @@ package riscv_pkg;
     CLZ,
     CPOP,
     CTZ,
+    MUL,
+    MULH,
+    MULHSU,
+    MULHU,
+    DIV,
+    DIVU,
+    REM,
+    REMU,
     OPERATION_UNKNOWN
   } operation_e;
 
@@ -1176,6 +1201,14 @@ package riscv_pkg;
     CTZ,
     ZBB_UNKNOWN
   } Zbb_Type_enum;*/
+
+  //M-Extension Finite State Machine enum
+  typedef enum logic [1:0] {
+    IDLE,
+    BUSY,
+    DONE,
+    UNKNOWN_MEXT_STATE
+  } Mext_State_enum;
 
   function automatic logic [XLEN-1:0] clz_function(logic [XLEN-1:0] rs1_data); // msb bitinden itibaren arka arkaya kaç adet 0 olduğunu sayar.
     logic [XLEN-1:0] result;
