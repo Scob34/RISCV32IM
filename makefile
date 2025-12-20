@@ -18,6 +18,11 @@ clean:
 	@echo "Cleaning up..."
 	rm -rf obj_dir;
 	rm -f dump.vcd
-	rm pc.log
+	rm -f pc.log
+	rm -f instruction.hex
+	rm -f *.pyc
+	rm -rf __pycache__
+	rm -rf my_outputs
+	rm -rf my_waveforms
 
 .PHONY: all lint build run wave clean
