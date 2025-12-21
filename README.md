@@ -39,8 +39,9 @@ For a detailed explanation of the datapath, control logic, and performance analy
 ├── LICENSE          # License file
 ├── README.md        # This file
 └── verify_tests.py  # Automation script to run all testcases and verify functionality
----
 ```
+
+---
 
 🛠️ Tools & Technologies
 
@@ -56,7 +57,12 @@ For a detailed explanation of the datapath, control logic, and performance analy
 
     Documentation: LaTeX (Beamer)
 
+---
+
 📊 Block Diagram
+
+---
+
 ⚙️ How to Run & Simulation
 
 To simulate the processor and run the testbenches, follow the steps below.
@@ -76,10 +82,10 @@ Make sure you have the following tools installed:
 
 2. Running the Simulation
 
-I have provided Python scripts to automate the testing process.
-A. Running All Verification Tests
+    I have provided Python scripts to automate the testing process.
+    A. Running All Verification Tests
 
-To run all test hex codes in the core and check whether they pass or fail:
+    To run all test hex codes in the core and check whether they pass or fail:
 
     ⚠️ Attention: Before running this script, ensure your Fetch Stage uses the generic
     ```systemverilog
@@ -93,6 +99,8 @@ To run all test hex codes in the core and check whether they pass or fail:
     ```systemverilog
     initial $readmemh("instruction.hex", instruction_memory, 0, MEM_SIZE);
     ```
+---
+
 ```bash
 # Run the verification script from the root folder
 python3 verify_tests.py
@@ -116,9 +124,9 @@ To run a specific test case manually:
     initial
     ``` 
     block in your Fetch Stage module to point to the specific hex file:
-```systemverilog
-initial $readmemh("./riscv-tests/{name}/verification_output/{name}_pure.hex", instruction_memory, 0, MEM_SIZE);
-```
+    ```systemverilog
+    initial $readmemh("./riscv-tests/{name}/verification_output/{name}_pure.hex", instruction_memory, 0, MEM_SIZE);
+    ```
  2. Run the simulation using Make:
     ```bash 
     # Navigate to root folder
