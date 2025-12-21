@@ -1,8 +1,6 @@
 # RISCV32IB - 32-Bit Pipelined RISC-V Processor
 
-![Status](https://img.shields.io/badge/Status-Completed-success)
-![Language](https://img.shields.io/badge/Language-SystemVerilog-blue)
-![Platform](https://img.shields.io/badge/Tool-Verilator-orange)
+![Status](https://img.shields.io/badge/Status-Completed-success) ![Language](https://img.shields.io/badge/Language-SystemVerilog-blue) ![Platform](https://img.shields.io/badge/Tool-Verilator-orange)
 
 > A 5-stage pipelined RISC-V processor implementation supporting RV32I Base Integer Instruction Set and M-Extension.
 
@@ -38,74 +36,60 @@ For a detailed explanation of the datapath, control logic, and performance analy
 ├── LICENSE          # License file
 ├── README.md        # This file
 └── verify_tests.py  # Automation script to run all testcases and verify functionality
+```
 
 ---
 
-🛠️ Tools & Technologies
+## 🛠️ Tools & Technologies
 
-    Language: SystemVerilog / Verilog
-
-    Compilation: RISC-V GNU Toolchain
-
-    Simulation: Verilator & Spike (RISC-V ISA Simulator)
-
-    Waveform Viewer: GTKWave
-
-    Scripts: Python (for test generation and automation)
-
-    Documentation: LaTeX (Beamer)
+* **Language:** SystemVerilog / Verilog
+* **Compilation:** RISC-V GNU Toolchain
+* **Simulation:** Verilator & Spike (RISC-V ISA Simulator)
+* **Waveform Viewer:** GTKWave
+* **Scripts:** Python (for test generation and automation)
+* **Documentation:** LaTeX (Beamer)
 
 ---
 
-📊 Block Diagram
+## 📊 Block Diagram
+
+![Block Diagram](docs/images/tekParcaIslemci.png)
 
 ---
 
-⚙️ How to Run & Simulation
+## ⚙️ How to Run & Simulation
 
 To simulate the processor and run the testbenches, follow the steps below.
-1. Prerequisites
 
+### 1. Prerequisites
 Make sure you have the following tools installed:
+* **Verilator** (v4.0 or later)
+* **Python 3** (with `numpy`)
+* **GTKWave** (for waveform visualization)
+* **RISC-V Toolchain** (gcc-riscv32-unknown-elf)
+* **Spike** (RISC-V ISA Simulator)
 
-    Verilator (v4.0 or later)
+### 2. Running the Simulation
 
-    Python 3 (with numpy)
+I have provided Python scripts to automate the testing process.
 
-    GTKWave (for waveform visualization)
+#### A. Running All Verification Tests
+To run all test hex codes in the core and check whether they pass or fail:
 
-    RISC-V Toolchain (gcc-riscv32-unknown-elf)
-
-    Spike (RISC-V ISA Simulator)
-
-2. Running the Simulation
-
-    I have provided Python scripts to automate the testing process.
-    A. Running All Verification Tests
-
-    To run all test hex codes in the core and check whether they pass or fail:
-
-    ⚠️ Attention: Before running this script, ensure your Fetch Stage uses the generic
-    ```systemverilog
-    instruction.hex
-    ```
-    file in the
-    ```systemverilog
-    $readmemh
-    ```
-    block:
-    ```systemverilog
-    initial $readmemh("instruction.hex", instruction_memory, 0, MEM_SIZE);
-    ```
----
+> **⚠️ Attention:** Before running this script, ensure your Fetch Stage uses the generic `instruction.hex` file in the `$readmemh` block:
+>
+> ```systemverilog
+> initial $readmemh("instruction.hex", instruction_memory, 0, MEM_SIZE);
+> ```
 
 ```bash
 # Run the verification script from the root folder
 python3 verify_tests.py
 ```
-B. Generating Assembly Tests
 
+#### B. Generating Assembly Tests
 If you want to generate hex files from assembly code:
+
 ```bash
 # Navigate to riscv-tests folder
 cd riscv-tests
@@ -113,31 +97,28 @@ cd riscv-tests
 # Run the build script to simulate assembly (.s) codes
 python3 full_build.py
 ```
-C. Manual Testing (Specific Testcase)
 
+#### C. Manual Testing (Specific Testcase)
 To run a specific test case manually:
 
- 1. Modify the 
-    ```systemverilog 
-    initial
-    ``` 
-    block in your Fetch Stage module to point to the specific hex file:
-    ```systemverilog
-    initial $readmemh("./riscv-tests/{name}/verification_output/{name}_pure.hex", instruction_memory, 0, MEM_SIZE);
-    ```
- 2. Run the simulation using Make:
-    ```bash 
-    # Navigate to root folder
-    make run > output.log
-    ``` 
-📚 References
+1. Modify the `initial` block in your Fetch Stage module to point to the specific hex file:
+   ```systemverilog
+   initial $readmemh("./riscv-tests/{name}/verification_output/{name}_pure.hex", instruction_memory, 0, MEM_SIZE);
+   ```
+2. Run the simulation using Make:
+   ```bash 
+   # Navigate to root folder
+   make run > output.log
+   ``` 
 
-    Harris, D. M., & Harris, S. L. (2021). Digital Design and Computer Architecture: RISC-V Edition. Morgan Kaufmann.
+---
 
-    Patterson, D. A., & Hennessy, J. L. (2020). Computer Organization and Design RISC-V Edition: The Hardware Software Interface. Morgan Kaufmann.
+## 📚 References
 
-    Hennessy, J. L., & Patterson, D. A. (2017). Computer Architecture: A Quantitative Approach. Morgan Kaufmann.
+* Harris, D. M., & Harris, S. L. (2021). *Digital Design and Computer Architecture: RISC-V Edition*. Morgan Kaufmann.
+* Patterson, D. A., & Hennessy, J. L. (2020). *Computer Organization and Design RISC-V Edition: The Hardware Software Interface*. Morgan Kaufmann.
+* Hennessy, J. L., & Patterson, D. A. (2017). *Computer Architecture: A Quantitative Approach*. Morgan Kaufmann.
+* RISC-V Instruction Set Manual, Volume I: Unprivileged ISA.
 
-    RISC-V Instruction Set Manual, Volume I: Unprivileged ISA.
-
-Author: Fatih Sarıduman
+---
+**Author:** Fatih Sarıduman
