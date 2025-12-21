@@ -1,4 +1,5 @@
 riscv-tests/**/build/
+riscv-tests/**/verification_output/
 **/__pycache__/
 
 # LaTeX Geçici Dosyaları
