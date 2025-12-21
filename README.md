@@ -1,4 +1,3 @@
-```markdown
 # RISCV32IB - 32-Bit Pipelined RISC-V Processor
 
 ![Status](https://img.shields.io/badge/Status-Completed-success)
@@ -39,7 +38,6 @@ For a detailed explanation of the datapath, control logic, and performance analy
 ├── LICENSE          # License file
 ├── README.md        # This file
 └── verify_tests.py  # Automation script to run all testcases and verify functionality
-```
 
 ---
 
