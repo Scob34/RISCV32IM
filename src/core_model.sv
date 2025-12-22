@@ -50,7 +50,7 @@ module core_model
 
     //Instruction_Read_Comb
     logic [31:0] instruction_memory [MEM_SIZE-1:0]; // Intruction memory tanımı
-    //initial $readmemh("./riscv-tests/mul/verification_output/mul_pure.hex", instruction_memory, 0, MEM_SIZE);
+    //initial $readmemh("./riscv-tests/div_rem/verification_output/div_rem_pure.hex", instruction_memory, 0, MEM_SIZE);
     initial $readmemh("instruction.hex", instruction_memory, 0, MEM_SIZE); // script için instruction yükleme
 
 
@@ -85,7 +85,7 @@ module core_model
 
 /////////////////////////////////////////////////////////////////////////DECODE AŞAMASI/////////////////////////////////////////////////////////////////////////
 
-    //INPUTLAR
+    //=========================================================== INPUTLAR ================================================
     logic [XLEN-1:0] instr_d_decode;
     assign instr_d_decode = instr_q_fetch;
 
@@ -95,7 +95,7 @@ module core_model
     logic            update_d_decode;
     assign update_d_decode = update_q_fetch_to_decode;
 
-    // INTERNAL DEĞİŞKENLER
+    //==================================================== INTERNAL DEĞİŞKENLER ============================================
     logic [XLEN-1:0] imm_data_d_decode;
 
     logic [     4:0] shamt_data_d_decode;
@@ -121,7 +121,7 @@ module core_model
     operation_e operation_d_decode;
 
 
-    // ID/IEX REGISTER OUTPUTS
+    //================================================== ID/IEX REGISTER OUTPUTS =============================================
     logic [XLEN-1:0] instr_q_decode;
     logic [XLEN-1:0] pc_q_decode;
     logic            update_q_decode;
@@ -143,7 +143,7 @@ module core_model
 
     operation_e operation_q_decode;
 
-    // CONTROL SİNYELLERİ, IMMEDIATE DEĞERİ ATAMALARI
+    //======================================= CONTROL SİNYELLERİ, IMMEDIATE DEĞERİ ATAMALARI ===================================
     always_comb begin : DECODE_BLOCK
         imm_data_d_decode = 0;
 
@@ -287,7 +287,8 @@ module core_model
         endcase
     end
 
-    // REGITER FILE
+    //====================================================== REGISTER FILE ================================================
+
     logic [XLEN-1:0] register_file [31:0];
     assign rs1_data_d_decode =(register_file_write_enable_d_writeback && (rd_d_writeback != 0) && (rd_d_writeback == rs1_addr_d_decode)) ? rd_data_d_writeback : register_file[rs1_addr_d_decode];
     assign rs2_data_d_decode =(register_file_write_enable_d_writeback && (rd_d_writeback != 0) && (rd_d_writeback == rs2_addr_d_decode)) ? rd_data_d_writeback : register_file[rs2_addr_d_decode];
@@ -302,7 +303,8 @@ module core_model
             register_file[rd_d_writeback] <= rd_data_d_writeback;
     end
 
-    // ID/IEX REGISTER
+    //=====================================================  ID/IEX REGISTER ================================================
+
     always_ff @(posedge clk or negedge rstn) begin : ID_IEX_REGISTER
         if(!rstn || is_Flush_ID_IEX_Register) begin
             instr_q_decode <= 0;
@@ -372,9 +374,10 @@ module core_model
         end
     end
 
-/////////////////////////////////////////////////////////////////////////EXECUTE AŞAMASI/////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////EXECUTE AŞAMASI//////////////////////////////////////////////////////////////////////////
 
-    //INPUTLAR
+    //=================================================== INPUTLAR ===========================================================
+
     logic [XLEN-1:0] instr_d_execute;
     assign instr_d_execute = instr_q_decode;
 
@@ -436,7 +439,7 @@ module core_model
             rs2_data_d_execute = 0; // beklenmedik durum
     end
 
-    // INTERNAL DEĞİŞKENLER
+    //======================================================= INTERNAL DEĞİŞKENLER ===============================================
 
     logic jump_pc_valid_d_execute;
     logic [XLEN-1:0] jump_pc_d_execute;
@@ -452,7 +455,7 @@ module core_model
     logic [XLEN-1:0] data_memory_read_address_d_execute;
     assign data_memory_read_address_d_execute = rs1_data_d_execute + imm_data_d_execute;
 
-    // OUTPUTLAR
+    //============================================================= OUTPUTLAR ======================================================
 
     logic [XLEN-1:0] instr_q_execute;
     logic [XLEN-1:0] pc_q_execute;
@@ -472,7 +475,7 @@ module core_model
     logic [XLEN-1:0] data_memory_write_address_q_execute;
     logic [XLEN-1:0] data_memory_read_address_q_execute;
 
-    // EXECUTE BLOCK
+    //========================================================== EXECUTE BLOCK ====================================================
 
     logic [XLEN-1:0] alu_result_d_execute;
 
@@ -556,59 +559,82 @@ module core_model
         endcase
     end
 
-    // M-EXTENSION UNIT
+    //========================================================== M-EXTENSION UNIT ==================================================
 
-    logic [XLEN-1:0] multiplicant; // çarpılan
-    assign multiplicant = rs1_data_d_execute;
-    logic [XLEN-1:0] multiplicant_register; // çarpılan register
+    logic [XLEN-1:0] multiplicand_dividend; // çarpılan / bölünen
+    assign multiplicand_dividend = rs1_data_d_execute;
 
-    logic [XLEN-1:0] multiplier; // çarpan
-    assign multiplier = rs2_data_d_execute;
-    logic [XLEN*2 -1:0] product_register; // 64 bit sonuç registerı
+    logic [XLEN-1:0] multiplier_divisor; // çarpan / bölen
+    assign multiplier_divisor = rs2_data_d_execute;
 
     logic is_MEXT_op;
     assign is_MEXT_op = (operation_d_execute == MUL || operation_d_execute == MULH || operation_d_execute == MULHSU || operation_d_execute == MULHU ||
                          operation_d_execute == DIV || operation_d_execute == DIVU || operation_d_execute == REM || operation_d_execute == REMU);
+
+    logic is_DIV_op;
+    assign is_DIV_op = (operation_d_execute == DIV || operation_d_execute == DIVU || operation_d_execute == REM || operation_d_execute == REMU);
     
     logic [5:0] counter;
     Mext_State_enum MEXT_state;
     Mext_State_enum MEXT_next_state;
-    logic sign_multiplicand;
-    logic sign_multiplicand_register;
+    logic sign_multiplicand_dividend;
+    logic sign_multiplicand_dividend_register;
 
-    logic sign_multiplier;
-    logic sign_multiplier_register;
+    logic sign_multiplier_divisor;
+    logic sign_multiplier_divisor_register;
     logic is_busy_d_execute;
 
+    //**************************************** SIGN_FIND_BLOCK ***********************************
+
     always_comb begin : SIGN_MULTIPLICANT_FIND
-        sign_multiplicand = 0;
-        sign_multiplier = 0;
+        sign_multiplicand_dividend = 0;
+        sign_multiplier_divisor = 0;
         if(is_MEXT_op) begin
             case(operation_d_execute)
                 MUL, MULH, DIV, REM: begin
-                    if(multiplicant[XLEN-1] == 1)
-                        sign_multiplicand = 1;
-                    if(multiplier[XLEN-1] == 1)
-                        sign_multiplier = 1;
+                    if(multiplicand_dividend[XLEN-1] == 1)
+                        sign_multiplicand_dividend = 1;
+                    if(multiplier_divisor[XLEN-1] == 1)
+                        sign_multiplier_divisor = 1;
                 end
                 MULHSU: begin
-                    if(multiplicant[XLEN-1] == 1)
-                        sign_multiplicand = 1;
+                    if(multiplicand_dividend[XLEN-1] == 1)
+                        sign_multiplicand_dividend = 1;
                 end
                 default: ;
             endcase
         end
     end
 
-    always_comb begin: FINITE_STATE_MACHINE
+    //***************************************** NEXT_STATE_FSM **************************************
+
+    always_comb begin: NEXT_STATE_FSM
         MEXT_next_state = MEXT_state;
         is_busy_d_execute = 0;
 
         case(MEXT_state)
             IDLE: begin
                 if(is_MEXT_op) begin
-                    MEXT_next_state = BUSY;
-                    is_busy_d_execute = 1;
+                    if(is_DIV_op && (multiplier_divisor == 0)) begin   // sıfıra bölme durumu
+                        MEXT_next_state = DONE;
+                        is_busy_d_execute = 1;
+                    end
+                    else if(is_DIV_op && multiplicand_dividend == 32'h8000_0000 && multiplier_divisor == 32'hFFFF_FFFF) begin
+                        MEXT_next_state = DONE;
+                        is_busy_d_execute = 1;
+                    end
+                    else if(is_DIV_op && (multiplicand_dividend == 0)) begin // bölünenin 0 olduğu durum
+                        MEXT_next_state = DONE;
+                        is_busy_d_execute = 1;
+                    end
+                    else if(!is_DIV_op && (multiplier_divisor == 0 || multiplicand_dividend == 0)) begin // çarpan veya çarpılanın 0 olduğu durum
+                        MEXT_next_state = DONE;
+                        is_busy_d_execute = 1;
+                    end
+                    else begin // normal durum
+                        MEXT_next_state = BUSY;
+                        is_busy_d_execute = 1;
+                    end
                 end
                 else begin
                     MEXT_next_state = IDLE;
@@ -626,79 +652,130 @@ module core_model
         endcase
     end
 
-    always_comb begin: MUL_RESULT_SECIM_DEVRESI
-        mul_result_d_execute = 0;
+    //************************************ NEXT_VALUE_LOGIC *****************************************
+
+    logic [XLEN*2 -1:0] product_register_next;
+    logic [XLEN-1:0] multiplicand_divisor_register_next;
+    logic [XLEN:0] sum_sub_temp; // 33 bitlik geçici toplama,çıkarma değişkeni. Taşma bitini kaybetmemek için bunu kullanıcaz.
+
+    always_comb begin : NEXT_VALUE_LOGIC
+        product_register_next = product_register;
+        multiplicand_divisor_register_next = multiplicand_divisor_register;
+        sum_sub_temp = 0;
+
+        case(MEXT_state)
+            IDLE: begin
+                if(is_MEXT_op) begin
+                    if(is_DIV_op && (multiplier_divisor == 0)) begin  // sıfıra bölme durumu
+                        product_register_next = {multiplicand_dividend, 32'hFFFF_FFFF};
+                    end
+                    else if(is_DIV_op && multiplicand_dividend == 32'h8000_0000 && multiplier_divisor == 32'hFFFF_FFFF) begin
+                        product_register_next = {32'h0000_0000, multiplicand_dividend}; // Overflow durumu, -2^31 / -1 = +2^31 olmalı ama değer 32 bite sığmaz.
+                    end
+                    else if(is_DIV_op && (multiplicand_dividend == 0)) begin  // bölünenin 0 olduğu durum
+                        product_register_next = 0;
+                    end
+                    else if (is_DIV_op) begin  // normal bölme durumu
+                        multiplicand_divisor_register_next = (sign_multiplier_divisor) ? (~multiplier_divisor + 1) : multiplier_divisor;
+                        product_register_next[XLEN-1:0] = (sign_multiplicand_dividend) ? (~multiplicand_dividend + 1) : multiplicand_dividend;
+                        product_register_next[XLEN*2 -1:XLEN] = 0;
+                    end
+                    else if(!is_DIV_op && (multiplier_divisor == 0 || multiplicand_dividend == 0)) begin // çarpan veya çarpılanın 0 olduğu durum
+                        product_register_next = 0;
+                    end
+                    else  begin  // normal çarpma durumu
+                        multiplicand_divisor_register_next = (sign_multiplicand_dividend) ? (~multiplicand_dividend + 1) : multiplicand_dividend;
+                        product_register_next[XLEN -1:0] = (sign_multiplier_divisor) ? (~multiplier_divisor + 1) : multiplier_divisor;
+                        product_register_next[XLEN*2 -1:XLEN] = 0;
+                    end
+                end
+            end
+            BUSY: begin
+                if(counter > 0) begin
+                    if(is_DIV_op) begin
+                        sum_sub_temp = {1'b0,product_register[XLEN*2-2:XLEN-1]} - {1'b0, multiplicand_divisor_register};
+                        product_register_next = (sum_sub_temp[XLEN] == 1) ? product_register << 1 : {sum_sub_temp[XLEN-1:0], product_register[XLEN-2:0], 1'b1};
+                    end
+                    else begin
+                        sum_sub_temp = {1'b0, product_register[XLEN*2-1:XLEN]} + (product_register[0] ? {1'b0,multiplicand_divisor_register} : 0);
+                        product_register_next = (product_register[0] == 1) ? {sum_sub_temp, product_register[XLEN-1:1]} : product_register >> 1;
+                    end
+                end
+            end
+            DONE: begin
+                product_register_next = 0;
+                multiplicand_divisor_register_next = 0;
+            end
+            UNKNOWN_MEXT_STATE: begin
+                product_register_next = 64'hDEAD_DEAD_DEAD_DEAD;
+                multiplicand_divisor_register_next = 32'hDEAD_DEAD;
+            end
+        endcase
+    end
+
+    //*************************************** RESULT_REGISTER ***************************************
+
+    logic [XLEN*2 -1:0] product_register; // 64 bit sonuç registerı
+    logic [XLEN-1:0] multiplicand_divisor_register; // çarpılan / bölen register
+
+    always_ff @(posedge clk or negedge rstn) begin: RESULT_REGISTER
+        if(!rstn) begin
+            MEXT_state <= IDLE;
+            product_register <= 0;
+            counter <= XLEN;
+            multiplicand_divisor_register <= 0;
+            sign_multiplicand_dividend_register <= 0;
+            sign_multiplier_divisor_register <= 0;
+        end
+        else begin
+            MEXT_state <= MEXT_next_state;
+            product_register <= product_register_next;
+            multiplicand_divisor_register <= multiplicand_divisor_register_next;
+            counter <= (MEXT_state == BUSY && counter > 0) ? counter - 1 : XLEN;
+            sign_multiplicand_dividend_register <= (MEXT_state == IDLE) ? sign_multiplicand_dividend : sign_multiplicand_dividend_register;
+            sign_multiplier_divisor_register <= (MEXT_state == IDLE) ? sign_multiplier_divisor : sign_multiplier_divisor_register;
+        end
+    end
+
+    //************************************** FINAL_RESULT_CALCULATION ********************************
+
+    logic [XLEN*2 -1:0] product_register_final;
+
+    always_comb begin: PRODUCT_FINAL_CALCULATION
+        product_register_final = 0;
+        if(is_DIV_op) begin
+            product_register_final[XLEN-1:0] = (sign_multiplicand_dividend_register ^ sign_multiplier_divisor_register) ? (~product_register[XLEN-1:0] + 1) : product_register[XLEN-1:0];
+            product_register_final[XLEN*2-1:XLEN] = (sign_multiplicand_dividend_register) ? (~product_register[XLEN*2-1:XLEN] + 1) : product_register[XLEN*2-1:XLEN];
+        end
+        else
+            product_register_final = (sign_multiplier_divisor_register ^ sign_multiplicand_dividend_register) ? (~product_register + 1) : product_register;
+    end
+
+    //*************************************** MEXT RESULT SEÇİMİ ***************************************
+
+    logic [XLEN-1:0] mext_result_d_execute;
+
+    always_comb begin: MEXT_RESULT_SECIM_DEVRESI
+        mext_result_d_execute = 0;
         case(operation_d_execute)
-            MUL:   mul_result_d_execute = product_register_final[XLEN-1:0];
-            MULH:  mul_result_d_execute = product_register_final[XLEN*2-1:XLEN];
-            MULHSU:mul_result_d_execute = product_register_final[XLEN*2-1:XLEN];
-            MULHU: mul_result_d_execute = product_register_final[XLEN*2-1:XLEN];
+            MUL:   mext_result_d_execute = product_register_final[XLEN-1:0];
+            MULH:  mext_result_d_execute = product_register_final[XLEN*2-1:XLEN];
+            MULHSU:mext_result_d_execute = product_register_final[XLEN*2-1:XLEN];
+            MULHU: mext_result_d_execute = product_register_final[XLEN*2-1:XLEN];
+            DIV:   mext_result_d_execute = product_register_final[XLEN-1:0];
+            DIVU:  mext_result_d_execute = product_register_final[XLEN-1:0];
+            REM:   mext_result_d_execute = product_register_final[XLEN*2-1:XLEN];
+            REMU:  mext_result_d_execute = product_register_final[XLEN*2-1:XLEN];
             default: ;
         endcase
     end
 
-    always_ff @(posedge clk or negedge rstn) begin: STATE_REGISTER
-        if(!rstn)
-            MEXT_state <= IDLE;
-        else
-            MEXT_state <= MEXT_next_state;
-    end
-
+    //***************************** EX/MEM REGISTER İÇİN RD_DATA SEÇİMİ **********************************
     
-    
+    assign rd_data_d_execute = (is_MEXT_op) ? mext_result_d_execute : alu_result_d_execute;
 
-    //Multiplication Block
+    //======================================================= EX/MEM REGISTER ======================================================
 
-    logic [XLEN:0] sum; // 33 bitlik geçici toplam değişkeni. Taşma bitini kaybetmemek için bunu kullanıcaz.
-    assign sum = {1'b0, product_register[XLEN*2-1:XLEN]} + (product_register[0] ? {1'b0,multiplicant_register} : 0);
-
-    logic [XLEN*2 -1:0] product_register_final;
-    assign product_register_final = (sign_multiplier_register ^ sign_multiplicand_register) ? (~product_register + 1) : product_register;
-
-    logic [XLEN-1:0] mul_result_d_execute;
-
-    always_ff @(posedge clk or negedge rstn) begin: RESULT_REGISTER_64_BIT
-        if(!rstn) begin
-            product_register <= 0;
-            counter <= XLEN;
-            multiplicant_register <= 0;
-            sign_multiplicand_register <= 0;
-            sign_multiplier_register <= 0;
-        end
-        else begin
-            case(MEXT_state)
-                IDLE: begin
-                    product_register[XLEN*2 -1: XLEN] <= 0;
-                    product_register[XLEN -1:0] <= (sign_multiplier) ? (~multiplier + 1) : multiplier;
-                    multiplicant_register <= (sign_multiplicand) ? (~multiplicant + 1) : multiplicant;
-                    sign_multiplicand_register <= sign_multiplicand;
-                    sign_multiplier_register <= sign_multiplier;
-                    counter <= XLEN;
-                end
-                BUSY: begin
-                    if(counter > 0) begin
-                        if(product_register[0] == 1) begin
-                            product_register <= {sum, product_register[XLEN-1:1]};
-                            counter <= counter - 1;
-                        end
-                        else begin
-                            product_register <= product_register >> 1;
-                            counter <= counter - 1;
-                        end
-                    end
-                end
-                DONE: begin
-                    ;
-                end
-                UNKNOWN_MEXT_STATE: product_register <= 64'hFFFF_FFFF_FFFF_FFFF; // beklenmedik durum
-            endcase
-        end
-    end
-
-    // EX/MEM REGISTER İÇİN RD_DATA SEÇİMİ
-    assign rd_data_d_execute = (is_MEXT_op) ? mul_result_d_execute : alu_result_d_execute;
-
-    // EX/MEM REGISTER
     always_ff @(posedge clk or negedge rstn) begin : EX_MEM_REGISTER
         if(!rstn || is_Flush_EX_MEM_Register) begin
             instr_q_execute <= 0;
@@ -732,7 +809,7 @@ module core_model
 
 /////////////////////////////////////////////////////////////////////////MEMORY AŞAMASI/////////////////////////////////////////////////////////////////////////
 
-    //INPUTLAR
+    //===================================================== INPUTLAR =====================================================
     logic [XLEN-1:0] pc_d_memory;
     assign pc_d_memory = pc_q_execute;
 
@@ -769,7 +846,7 @@ module core_model
     logic [XLEN-1:0] data_memory_read_address_d_memory;
     assign data_memory_read_address_d_memory = data_memory_read_address_q_execute;
 
-    // INTERNAL DEĞİŞKENLER
+    //=================================================== INTERNAL DEĞİŞKENLER =============================================
     logic [XLEN-1:0] data_memory_read_data_d_memory;
 
     // OUTPUTLAR
@@ -792,7 +869,7 @@ module core_model
     logic [XLEN-1:0] data_memory_write_address_q_memory;
     logic [XLEN-1:0] data_memory_read_address_q_memory;
 
-    // DATA MEMORY
+    //===================================================== DATA MEMORY ======================================================
 
     logic [31:0] data_memory [MEM_SIZE-1:0];
 
@@ -824,7 +901,7 @@ module core_model
     // bunun sebebi iki örneği de görmek ve sonrasında unutmamak için. $clog2 dinamik olarak parametre oluşturmak gerektiğinde daha kullanışlı.
     // diğer türlü >> 2 kullanımı daha pratik.
 
-    // LOAD BLOCK İÇİN ADRES HESAPLAMASI
+    //========================================= LOAD BLOCK İÇİN ADRES HESAPLAMASI ===============================================
 
     localparam DATA_MEMORY_READ_ADDRESS_WIDTH = $clog2(MEM_SIZE);   
     logic [DATA_MEMORY_READ_ADDRESS_WIDTH-1:0] addr_index;
@@ -863,7 +940,7 @@ module core_model
         endcase
     end
 
-    // MEM/WRITEBACK REGISTER
+    //===================================================== MEM/WRITEBACK REGISTER =====================================================
 
     always_ff @(posedge clk or negedge rstn) begin : MEM_WRITEBACK_REGISTER
         if(!rstn) begin
@@ -947,7 +1024,7 @@ module core_model
 
 //////////////////////////////////////////////////////////////////////////////HAZARD UNIT///////////////////////////////////////////////////////////////////////////////
 
-    // FORWARDING
+    //================================================= FORWARDING UNIT =================================================
     Forward_Type_enum is_forward_rs1;
     Forward_Type_enum is_forward_rs2;
 
@@ -972,7 +1049,7 @@ module core_model
         else ;
     end
 
-    // FLUSH/STALL
+    //================================================= FLUSH/STALL UNIT =================================================
     logic is_Flush_IF_ID_Register;
     logic is_Flush_ID_IEX_Register;
 
