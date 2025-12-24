@@ -573,20 +573,13 @@ module core_model
 
     logic is_DIV_op;
     assign is_DIV_op = (operation_d_execute == DIV || operation_d_execute == DIVU || operation_d_execute == REM || operation_d_execute == REMU);
-    
-    logic [5:0] counter;
-    Mext_State_enum MEXT_state;
-    Mext_State_enum MEXT_next_state;
-    logic sign_multiplicand_dividend;
-    logic sign_multiplicand_dividend_register;
-
-    logic sign_multiplier_divisor;
-    logic sign_multiplier_divisor_register;
-    logic is_busy_d_execute;
 
     //**************************************** SIGN_FIND_BLOCK ***********************************
 
-    always_comb begin : SIGN_MULTIPLICANT_FIND
+    logic sign_multiplicand_dividend;
+    logic sign_multiplier_divisor;
+
+    always_comb begin : SIGN_FIND
         sign_multiplicand_dividend = 0;
         sign_multiplier_divisor = 0;
         if(is_MEXT_op) begin
@@ -607,6 +600,10 @@ module core_model
     end
 
     //***************************************** NEXT_STATE_FSM **************************************
+
+    Mext_State_enum MEXT_state;
+    Mext_State_enum MEXT_next_state;
+    logic is_busy_d_execute;
 
     always_comb begin: NEXT_STATE_FSM
         MEXT_next_state = MEXT_state;
@@ -717,6 +714,10 @@ module core_model
 
     logic [XLEN*2 -1:0] product_register; // 64 bit sonuç registerı
     logic [XLEN-1:0] multiplicand_divisor_register; // çarpılan / bölen register
+    logic [5:0] counter;
+    logic sign_multiplicand_dividend_register;
+    logic sign_multiplier_divisor_register;
+    
 
     always_ff @(posedge clk or negedge rstn) begin: RESULT_REGISTER
         if(!rstn) begin
@@ -739,16 +740,16 @@ module core_model
 
     //************************************** FINAL_RESULT_CALCULATION ********************************
 
-    logic [XLEN*2 -1:0] product_register_final;
+    logic [XLEN*2 -1:0] final_result;
 
     always_comb begin: PRODUCT_FINAL_CALCULATION
-        product_register_final = 0;
+        final_result = 0;
         if(is_DIV_op) begin
-            product_register_final[XLEN-1:0] = (sign_multiplicand_dividend_register ^ sign_multiplier_divisor_register) ? (~product_register[XLEN-1:0] + 1) : product_register[XLEN-1:0];
-            product_register_final[XLEN*2-1:XLEN] = (sign_multiplicand_dividend_register) ? (~product_register[XLEN*2-1:XLEN] + 1) : product_register[XLEN*2-1:XLEN];
+            final_result[XLEN-1:0] = (sign_multiplicand_dividend_register ^ sign_multiplier_divisor_register) ? (~product_register[XLEN-1:0] + 1) : product_register[XLEN-1:0];
+            final_result[XLEN*2-1:XLEN] = (sign_multiplicand_dividend_register) ? (~product_register[XLEN*2-1:XLEN] + 1) : product_register[XLEN*2-1:XLEN];
         end
         else
-            product_register_final = (sign_multiplier_divisor_register ^ sign_multiplicand_dividend_register) ? (~product_register + 1) : product_register;
+            final_result = (sign_multiplier_divisor_register ^ sign_multiplicand_dividend_register) ? (~product_register + 1) : product_register;
     end
 
     //*************************************** MEXT RESULT SEÇİMİ ***************************************
@@ -758,19 +759,19 @@ module core_model
     always_comb begin: MEXT_RESULT_SECIM_DEVRESI
         mext_result_d_execute = 0;
         case(operation_d_execute)
-            MUL:   mext_result_d_execute = product_register_final[XLEN-1:0];
-            MULH:  mext_result_d_execute = product_register_final[XLEN*2-1:XLEN];
-            MULHSU:mext_result_d_execute = product_register_final[XLEN*2-1:XLEN];
-            MULHU: mext_result_d_execute = product_register_final[XLEN*2-1:XLEN];
-            DIV:   mext_result_d_execute = product_register_final[XLEN-1:0];
-            DIVU:  mext_result_d_execute = product_register_final[XLEN-1:0];
-            REM:   mext_result_d_execute = product_register_final[XLEN*2-1:XLEN];
-            REMU:  mext_result_d_execute = product_register_final[XLEN*2-1:XLEN];
+            MUL:   mext_result_d_execute = final_result[XLEN-1:0];
+            MULH:  mext_result_d_execute = final_result[XLEN*2-1:XLEN];
+            MULHSU:mext_result_d_execute = final_result[XLEN*2-1:XLEN];
+            MULHU: mext_result_d_execute = final_result[XLEN*2-1:XLEN];
+            DIV:   mext_result_d_execute = final_result[XLEN-1:0];
+            DIVU:  mext_result_d_execute = final_result[XLEN-1:0];
+            REM:   mext_result_d_execute = final_result[XLEN*2-1:XLEN];
+            REMU:  mext_result_d_execute = final_result[XLEN*2-1:XLEN];
             default: ;
         endcase
     end
 
-    //***************************** EX/MEM REGISTER İÇİN RD_DATA SEÇİMİ **********************************
+    //===========================================EX/MEM REGISTER İÇİN RD_DATA SEÇİMİ ==============================================
     
     assign rd_data_d_execute = (is_MEXT_op) ? mext_result_d_execute : alu_result_d_execute;
 
