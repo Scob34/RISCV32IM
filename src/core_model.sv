@@ -8,8 +8,7 @@ module core_model
     output logic [     4:0] reg_addr_o,
     output logic [XLEN-1:0] reg_data_o,
     output logic            update_o,
-    output logic [XLEN-1:0] memory_read_addr_o,
-    output logic [XLEN-1:0] memory_write_addr_o,
+    output logic [XLEN-1:0] memory_addr_o,
     output logic [XLEN-1:0] memory_write_data_o,
     output logic            memory_read_enable_o,
     output logic            memory_write_enable_o,
@@ -414,6 +413,8 @@ module core_model
     operation_e operation_d_execute;
     assign operation_d_execute = operation_q_decode;
 
+    //===================================================== FORWARDING DATA ======================================================
+    
     logic [XLEN-1:0] rs1_data_d_execute;
     always_comb begin : forwarding_rs1
 
@@ -424,7 +425,7 @@ module core_model
         else if(is_forward_rs1 == FORWARD_WRITEBACK)
             rs1_data_d_execute = rd_data_d_writeback;
         else
-            rs1_data_d_execute = 0; // beklenmedik durum
+            rs1_data_d_execute = 32'hDEAD_DEAD; // beklenmedik durum
     end
 
     logic [XLEN-1:0] rs2_data_d_execute;
@@ -436,7 +437,7 @@ module core_model
         else if(is_forward_rs2 == FORWARD_WRITEBACK)
             rs2_data_d_execute = rd_data_d_writeback;
         else
-            rs2_data_d_execute = 0; // beklenmedik durum
+            rs2_data_d_execute = 32'hDEAD_DEAD ; // beklenmedik durum
     end
 
     //======================================================= INTERNAL DEĞİŞKENLER ===============================================
@@ -449,11 +450,8 @@ module core_model
     logic [XLEN-1:0] data_memory_write_data_d_execute;
     assign data_memory_write_data_d_execute = rs2_data_d_execute;
 
-    logic [XLEN-1:0] data_memory_write_address_d_execute;
-    assign data_memory_write_address_d_execute = rs1_data_d_execute + imm_data_d_execute;
-
-    logic [XLEN-1:0] data_memory_read_address_d_execute;
-    assign data_memory_read_address_d_execute = rs1_data_d_execute + imm_data_d_execute;
+    logic [XLEN-1:0] data_memory_address_d_execute;
+    assign data_memory_address_d_execute = rs1_data_d_execute + imm_data_d_execute;
 
     //============================================================= OUTPUTLAR ======================================================
 
@@ -472,31 +470,38 @@ module core_model
     logic [XLEN-1:0] rd_data_q_execute;
 
     logic [XLEN-1:0] data_memory_write_data_q_execute;
-    logic [XLEN-1:0] data_memory_write_address_q_execute;
-    logic [XLEN-1:0] data_memory_read_address_q_execute;
+    logic [XLEN-1:0] data_memory_address_q_execute;
 
     //========================================================== EXECUTE BLOCK ====================================================
 
-    logic [XLEN-1:0] alu_result_d_execute;
+    logic [XLEN-1:0] execute_block_result;
 
-    always_comb begin : ALU_BLOCK
+    always_comb begin : EXECUTE_BLOCK
         jump_pc_valid_d_execute = 0;
         jump_pc_d_execute = 0;
-        alu_result_d_execute = 0;
+        execute_block_result = 0;
 
         case(operation_d_execute)
-            LUI:   alu_result_d_execute = imm_data_d_execute;
-            AUIPC: alu_result_d_execute = pc_d_execute + imm_data_d_execute;
+            //------------------------------------ UPPER IMMEDIATE OPERATIONS -----------------------------
+
+            LUI:   execute_block_result = imm_data_d_execute;
+            AUIPC: execute_block_result = pc_d_execute + imm_data_d_execute;
+
+            //----------------------------------- JAL AND JALR OPERATIONS ---------------------------------
+
             JAL: begin
-                alu_result_d_execute = pc_d_execute + 4;
+                execute_block_result = pc_d_execute + 4;
                 jump_pc_valid_d_execute = 1;
                 jump_pc_d_execute = pc_d_execute + imm_data_d_execute;
             end
             JALR: begin
-                alu_result_d_execute = pc_d_execute + 4;
+                execute_block_result = pc_d_execute + 4;
                 jump_pc_valid_d_execute = 1;
                 jump_pc_d_execute = (rs1_data_d_execute + imm_data_d_execute) & ~1;
             end
+
+            //-------------------------------------------- BRANCH OPERATIONS -------------------------------
+
             BEQ: begin
                 if(rs1_data_d_execute == rs2_data_d_execute) begin
                     jump_pc_valid_d_execute = 1;
@@ -533,28 +538,30 @@ module core_model
                     jump_pc_d_execute = pc_d_execute + imm_data_d_execute;
                 end
             end
-            ADDI:  alu_result_d_execute = $signed(rs1_data_d_execute) + $signed(imm_data_d_execute);
-            SLTI:  if($signed(rs1_data_d_execute) < $signed(imm_data_d_execute)) alu_result_d_execute = 1;
-            SLTIU: if(rs1_data_d_execute < imm_data_d_execute) alu_result_d_execute = 1;
-            XORI:  alu_result_d_execute = rs1_data_d_execute ^ imm_data_d_execute;
-            ORI:   alu_result_d_execute = rs1_data_d_execute | imm_data_d_execute;
-            ANDI:  alu_result_d_execute = rs1_data_d_execute & imm_data_d_execute;
-            SLLI:  alu_result_d_execute = rs1_data_d_execute << shamt_data_d_execute;
-            SRLI:  alu_result_d_execute = rs1_data_d_execute >> shamt_data_d_execute;
-            SRAI:  alu_result_d_execute = $signed(rs1_data_d_execute) >>> shamt_data_d_execute;
-            ADD:   alu_result_d_execute = $signed(rs1_data_d_execute) + $signed(rs2_data_d_execute);
-            SUB:   alu_result_d_execute = $signed(rs1_data_d_execute) - $signed(rs2_data_d_execute);
-            SLL:   alu_result_d_execute = rs1_data_d_execute << rs2_data_d_execute[4:0];
-            SLT:   if($signed(rs1_data_d_execute) < $signed(rs2_data_d_execute)) alu_result_d_execute = 1;
-            SLTU:  if(rs1_data_d_execute < rs2_data_d_execute) alu_result_d_execute = 1;
-            XOR:   alu_result_d_execute = rs1_data_d_execute ^ rs2_data_d_execute;
-            SRL:   alu_result_d_execute = rs1_data_d_execute >> rs2_data_d_execute[4:0];
-            SRA:   alu_result_d_execute = $signed(rs1_data_d_execute) >>> rs2_data_d_execute[4:0];
-            OR:    alu_result_d_execute = rs1_data_d_execute | rs2_data_d_execute;
-            AND:   alu_result_d_execute = rs1_data_d_execute & rs2_data_d_execute;
-            CLZ:   alu_result_d_execute = clz_function(rs1_data_d_execute);
-            CPOP:  alu_result_d_execute = cpop_function(rs1_data_d_execute);
-            CTZ:   alu_result_d_execute = ctz_function(rs1_data_d_execute);
+
+            //------------------------------------------- ALU OPERATIONS ------------------------------------
+            ADDI:  execute_block_result = $signed(rs1_data_d_execute) + $signed(imm_data_d_execute);
+            SLTI:  if($signed(rs1_data_d_execute) < $signed(imm_data_d_execute)) execute_block_result = 1;
+            SLTIU: if(rs1_data_d_execute < imm_data_d_execute) execute_block_result = 1;
+            XORI:  execute_block_result = rs1_data_d_execute ^ imm_data_d_execute;
+            ORI:   execute_block_result = rs1_data_d_execute | imm_data_d_execute;
+            ANDI:  execute_block_result = rs1_data_d_execute & imm_data_d_execute;
+            SLLI:  execute_block_result = rs1_data_d_execute << shamt_data_d_execute;
+            SRLI:  execute_block_result = rs1_data_d_execute >> shamt_data_d_execute;
+            SRAI:  execute_block_result = $signed(rs1_data_d_execute) >>> shamt_data_d_execute;
+            ADD:   execute_block_result = $signed(rs1_data_d_execute) + $signed(rs2_data_d_execute);
+            SUB:   execute_block_result = $signed(rs1_data_d_execute) - $signed(rs2_data_d_execute);
+            SLL:   execute_block_result = rs1_data_d_execute << rs2_data_d_execute[4:0];
+            SLT:   if($signed(rs1_data_d_execute) < $signed(rs2_data_d_execute)) execute_block_result = 1;
+            SLTU:  if(rs1_data_d_execute < rs2_data_d_execute) execute_block_result = 1;
+            XOR:   execute_block_result = rs1_data_d_execute ^ rs2_data_d_execute;
+            SRL:   execute_block_result = rs1_data_d_execute >> rs2_data_d_execute[4:0];
+            SRA:   execute_block_result = $signed(rs1_data_d_execute) >>> rs2_data_d_execute[4:0];
+            OR:    execute_block_result = rs1_data_d_execute | rs2_data_d_execute;
+            AND:   execute_block_result = rs1_data_d_execute & rs2_data_d_execute;
+            CLZ:   execute_block_result = clz_function(rs1_data_d_execute);
+            CPOP:  execute_block_result = cpop_function(rs1_data_d_execute);
+            CTZ:   execute_block_result = ctz_function(rs1_data_d_execute);
             default: ;
         endcase
     end
@@ -754,26 +761,26 @@ module core_model
 
     //*************************************** MEXT RESULT SEÇİMİ ***************************************
 
-    logic [XLEN-1:0] mext_result_d_execute;
+    logic [XLEN-1:0] mext_result;
 
     always_comb begin: MEXT_RESULT_SECIM_DEVRESI
-        mext_result_d_execute = 0;
+        mext_result = 0;
         case(operation_d_execute)
-            MUL:   mext_result_d_execute = final_result[XLEN-1:0];
-            MULH:  mext_result_d_execute = final_result[XLEN*2-1:XLEN];
-            MULHSU:mext_result_d_execute = final_result[XLEN*2-1:XLEN];
-            MULHU: mext_result_d_execute = final_result[XLEN*2-1:XLEN];
-            DIV:   mext_result_d_execute = final_result[XLEN-1:0];
-            DIVU:  mext_result_d_execute = final_result[XLEN-1:0];
-            REM:   mext_result_d_execute = final_result[XLEN*2-1:XLEN];
-            REMU:  mext_result_d_execute = final_result[XLEN*2-1:XLEN];
+            MUL:   mext_result = final_result[XLEN-1:0];
+            MULH:  mext_result = final_result[XLEN*2-1:XLEN];
+            MULHSU:mext_result = final_result[XLEN*2-1:XLEN];
+            MULHU: mext_result = final_result[XLEN*2-1:XLEN];
+            DIV:   mext_result = final_result[XLEN-1:0];
+            DIVU:  mext_result = final_result[XLEN-1:0];
+            REM:   mext_result = final_result[XLEN*2-1:XLEN];
+            REMU:  mext_result = final_result[XLEN*2-1:XLEN];
             default: ;
         endcase
     end
 
     //===========================================EX/MEM REGISTER İÇİN RD_DATA SEÇİMİ ==============================================
     
-    assign rd_data_d_execute = (is_MEXT_op) ? mext_result_d_execute : alu_result_d_execute;
+    assign rd_data_d_execute = (is_MEXT_op) ? mext_result : execute_block_result;
 
     //======================================================= EX/MEM REGISTER ======================================================
 
@@ -789,8 +796,7 @@ module core_model
             operation_q_execute <= OPERATION_UNKNOWN;
             rd_data_q_execute <= 0;
             data_memory_write_data_q_execute <= 0;
-            data_memory_write_address_q_execute <= 0;
-            data_memory_read_address_q_execute <= 0;
+            data_memory_address_q_execute <= 0;
         end
         else begin
             instr_q_execute <= instr_d_execute;
@@ -803,8 +809,7 @@ module core_model
             operation_q_execute <= operation_d_execute;
             rd_data_q_execute <= rd_data_d_execute;
             data_memory_write_data_q_execute <= data_memory_write_data_d_execute;
-            data_memory_write_address_q_execute <= data_memory_write_address_d_execute;
-            data_memory_read_address_q_execute <= data_memory_read_address_d_execute;
+            data_memory_address_q_execute <= data_memory_address_d_execute;
         end
     end
 
@@ -841,11 +846,8 @@ module core_model
     logic [XLEN-1:0] data_memory_write_data_d_memory;
     assign data_memory_write_data_d_memory = data_memory_write_data_q_execute;
 
-    logic [XLEN-1:0] data_memory_write_address_d_memory;
-    assign data_memory_write_address_d_memory = data_memory_write_address_q_execute;
-
-    logic [XLEN-1:0] data_memory_read_address_d_memory;
-    assign data_memory_read_address_d_memory = data_memory_read_address_q_execute;
+    logic [XLEN-1:0] data_memory_address_d_memory;
+    assign data_memory_address_d_memory = data_memory_address_q_execute;
 
     //=================================================== INTERNAL DEĞİŞKENLER =============================================
     logic [XLEN-1:0] data_memory_read_data_d_memory;
@@ -867,12 +869,17 @@ module core_model
     logic [XLEN-1:0] rd_data_q_memory;
 
     logic [XLEN-1:0] data_memory_write_data_q_memory;
-    logic [XLEN-1:0] data_memory_write_address_q_memory;
-    logic [XLEN-1:0] data_memory_read_address_q_memory;
+    logic [XLEN-1:0] data_memory_address_q_memory;
 
     //===================================================== DATA MEMORY ======================================================
 
     logic [31:0] data_memory [MEM_SIZE-1:0];
+
+        //---------------------------------------- ADDRESS CALCULATION ----------------------------------------
+
+            localparam DATA_MEMORY_ADDRESS_WIDTH = $clog2(MEM_SIZE);   
+            logic [DATA_MEMORY_ADDRESS_WIDTH-1:0] addr_index;
+            assign addr_index = data_memory_address_d_memory[DATA_MEMORY_ADDRESS_WIDTH+1:2];
 
     always_ff @(posedge clk or negedge rstn) begin : STORE_BLOCK
         if(!rstn)
@@ -880,19 +887,18 @@ module core_model
         else if(data_memory_write_enable_d_memory) begin
             case(operation_d_memory)
                 SB:
-                    case(data_memory_write_address_d_memory[1:0])
-                        2'b00: data_memory[data_memory_write_address_d_memory[$clog2(MEM_SIZE)+1:2]][7:0]   <= data_memory_write_data_d_memory[7:0];
-                        2'b01: data_memory[data_memory_write_address_d_memory[$clog2(MEM_SIZE)+1:2]][15:8]  <= data_memory_write_data_d_memory[7:0];
-                        2'b10: data_memory[data_memory_write_address_d_memory >> 2][23:16] <= data_memory_write_data_d_memory[7:0];
-                        2'b11: data_memory[data_memory_write_address_d_memory >> 2][31:24] <= data_memory_write_data_d_memory[7:0];
+                    case(data_memory_address_d_memory[1:0])
+                        2'b00: data_memory[addr_index][7:0]   <= data_memory_write_data_d_memory[7:0];
+                        2'b01: data_memory[addr_index][15:8]  <= data_memory_write_data_d_memory[7:0];
+                        2'b10: data_memory[addr_index][23:16] <= data_memory_write_data_d_memory[7:0];
+                        2'b11: data_memory[addr_index][31:24] <= data_memory_write_data_d_memory[7:0];
                     endcase
                 SH:
-                    case(data_memory_write_address_d_memory[1])
-                        1'b0: data_memory[data_memory_write_address_d_memory >> 2][15:0] <= data_memory_write_data_d_memory[15:0];
-                        1'b1: data_memory[data_memory_write_address_d_memory[$clog2(MEM_SIZE)+1:2]][31:16] <= data_memory_write_data_d_memory[15:0];
+                    case(data_memory_address_d_memory[1])
+                        1'b0: data_memory[addr_index][15:0] <= data_memory_write_data_d_memory[15:0];
+                        1'b1: data_memory[addr_index][31:16] <= data_memory_write_data_d_memory[15:0];
                     endcase
-                SW: data_memory[data_memory_write_address_d_memory[$clog2(MEM_SIZE)+1:2]] <= data_memory_write_data_d_memory;
-                //  data_memory[data_memory_write_address_d_memory >> 2] <= data_memory_write_data_d_memory; şeklinde de olur.
+                SW: data_memory[addr_index] <= data_memory_write_data_d_memory;
                 default: ;
             endcase
         end
@@ -902,38 +908,32 @@ module core_model
     // bunun sebebi iki örneği de görmek ve sonrasında unutmamak için. $clog2 dinamik olarak parametre oluşturmak gerektiğinde daha kullanışlı.
     // diğer türlü >> 2 kullanımı daha pratik.
 
-    //========================================= LOAD BLOCK İÇİN ADRES HESAPLAMASI ===============================================
-
-    localparam DATA_MEMORY_READ_ADDRESS_WIDTH = $clog2(MEM_SIZE);   
-    logic [DATA_MEMORY_READ_ADDRESS_WIDTH-1:0] addr_index;
-    assign addr_index = data_memory_read_address_d_memory[DATA_MEMORY_READ_ADDRESS_WIDTH+1:2];
-
     always_comb begin : LOAD_BLOCK
         data_memory_read_data_d_memory = 0;
         
         case(operation_d_memory)
             LB:
-                case(data_memory_read_address_d_memory[1:0])
+                case(data_memory_address_d_memory[1:0])
                     2'b00: data_memory_read_data_d_memory = {{24{data_memory[addr_index][7]}}, data_memory[addr_index][7:0]};
                     2'b01: data_memory_read_data_d_memory = {{24{data_memory[addr_index][15]}}, data_memory[addr_index][15:8]};
                     2'b10: data_memory_read_data_d_memory = {{24{data_memory[addr_index][23]}}, data_memory[addr_index][23:16]};
                     2'b11: data_memory_read_data_d_memory = {{24{data_memory[addr_index][31]}}, data_memory[addr_index][31:24]};
                 endcase
             LH:
-                case(data_memory_read_address_d_memory[1])
+                case(data_memory_address_d_memory[1])
                     1'b0: data_memory_read_data_d_memory = {{16{data_memory[addr_index][15]}}, data_memory[addr_index][15:0]};
                     1'b1: data_memory_read_data_d_memory = {{16{data_memory[addr_index][31]}}, data_memory[addr_index][31:16]};
                 endcase
             LW:  data_memory_read_data_d_memory = data_memory[addr_index];
             LBU:
-                case(data_memory_read_address_d_memory[1:0])
+                case(data_memory_address_d_memory[1:0])
                     2'b00: data_memory_read_data_d_memory = {24'b0, data_memory[addr_index][7:0]};
                     2'b01: data_memory_read_data_d_memory = {24'b0, data_memory[addr_index][15:8]};
                     2'b10: data_memory_read_data_d_memory = {24'b0, data_memory[addr_index][23:16]};
                     2'b11: data_memory_read_data_d_memory = {24'b0, data_memory[addr_index][31:24]};
                 endcase
             LHU:
-                case(data_memory_read_address_d_memory[1])
+                case(data_memory_address_d_memory[1])
                     1'b0: data_memory_read_data_d_memory = {16'b0, data_memory[addr_index][15:0]};
                     1'b1: data_memory_read_data_d_memory = {16'b0, data_memory[addr_index][31:16]};
                 endcase
@@ -960,8 +960,7 @@ module core_model
             rd_data_q_memory <= 0;
 
             data_memory_write_data_q_memory <= 0;
-            data_memory_write_address_q_memory <= 0;
-            data_memory_read_address_q_memory <= 0;
+            data_memory_address_q_memory <= 0;
         end
         else begin
             pc_q_memory <= pc_d_memory;
@@ -979,8 +978,7 @@ module core_model
             rd_data_q_memory <= rd_data_d_memory;
 
             data_memory_write_data_q_memory <= data_memory_write_data_d_memory;
-            data_memory_write_address_q_memory <= data_memory_write_address_d_memory;
-            data_memory_read_address_q_memory <= data_memory_read_address_d_memory;
+            data_memory_address_q_memory <= data_memory_address_d_memory;
         end
     end
 
@@ -1017,11 +1015,8 @@ module core_model
     logic [XLEN-1:0] data_memory_write_data_d_writeback;
     assign data_memory_write_data_d_writeback = data_memory_write_data_q_memory;
 
-    logic [XLEN-1:0] data_memory_write_address_d_writeback;
-    assign data_memory_write_address_d_writeback = data_memory_write_address_q_memory;
-
-    logic [XLEN-1:0] data_memory_read_address_d_writeback;
-    assign data_memory_read_address_d_writeback = data_memory_read_address_q_memory;
+    logic [XLEN-1:0] data_memory_address_d_writeback;
+    assign data_memory_address_d_writeback = data_memory_address_q_memory;
 
 //////////////////////////////////////////////////////////////////////////////HAZARD UNIT///////////////////////////////////////////////////////////////////////////////
 
@@ -1094,8 +1089,7 @@ module core_model
     assign reg_addr_o = rd_d_writeback;
     assign reg_data_o = rd_data_d_writeback;
     assign update_o = update_d_writeback;
-    assign memory_read_addr_o = data_memory_read_address_d_writeback;
-    assign memory_write_addr_o = data_memory_write_address_d_writeback;
+    assign memory_addr_o = data_memory_address_d_writeback;
     assign memory_write_data_o = data_memory_write_data_d_writeback;
     assign memory_read_enable_o = data_memory_read_enable_d_writeback;
     assign memory_write_enable_o = data_memory_write_enable_d_writeback;

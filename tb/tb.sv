@@ -10,8 +10,7 @@ module tb ();
     logic [                4:0] reg_addr;
     logic [riscv_pkg::XLEN-1:0] reg_data;
     logic [riscv_pkg::XLEN-1:0] mem_write_data;
-    logic [riscv_pkg::XLEN-1:0] mem_read_addr;
-    logic [riscv_pkg::XLEN-1:0] mem_write_addr;
+    logic [riscv_pkg::XLEN-1:0] mem_addr;
     logic                       mem_write_enable;
     logic                       mem_read_enable;
     logic                       reg_file_write_enable;
@@ -27,8 +26,7 @@ module tb ();
         .instr_o(instr),
         .reg_addr_o(reg_addr),
         .reg_data_o(reg_data),
-        .memory_read_addr_o(mem_read_addr),
-        .memory_write_addr_o(mem_write_addr),
+        .memory_addr_o(mem_addr),
         .memory_write_data_o(mem_write_data),
         .memory_read_enable_o(mem_read_enable),
         .memory_write_enable_o(mem_write_enable),
@@ -81,9 +79,9 @@ module tb ();
             // A) MEMORY WRITE (STORE) LOGLARI
             if(mem_write_enable) begin
                 case(operation)
-                    SW: $display("0x%8h (0x%8h) mem 0x%8h 0x%8h", pc, instr, mem_write_addr, mem_write_data);
-                    SH: $display("0x%8h (0x%8h) mem 0x%8h 0x%4h", pc, instr, mem_write_addr, mem_write_data[15:0]);
-                    SB: $display("0x%8h (0x%8h) mem 0x%8h 0x%2h", pc, instr, mem_write_addr, mem_write_data[7:0]);
+                    SW: $display("0x%8h (0x%8h) mem 0x%8h 0x%8h", pc, instr, mem_addr, mem_write_data);
+                    SH: $display("0x%8h (0x%8h) mem 0x%8h 0x%4h", pc, instr, mem_addr, mem_write_data[15:0]);
+                    SB: $display("0x%8h (0x%8h) mem 0x%8h 0x%2h", pc, instr, mem_addr, mem_write_data[7:0]);
                     default: ;
                 endcase
             end
@@ -92,9 +90,9 @@ module tb ();
             else if (mem_read_enable && (reg_addr != 0)) begin
                 // Tek haneli registerlar için hizalama (x1  vs x10)
                 if(reg_addr < 10)
-                    $display("0x%8h (0x%8h) x%0d  0x%8h mem 0x%8h", pc, instr, reg_addr, reg_data, mem_read_addr);
+                    $display("0x%8h (0x%8h) x%0d  0x%8h mem 0x%8h", pc, instr, reg_addr, reg_data, mem_addr);
                 else
-                    $display("0x%8h (0x%8h) x%0d 0x%8h mem 0x%8h", pc, instr, reg_addr, reg_data, mem_read_addr);
+                    $display("0x%8h (0x%8h) x%0d 0x%8h mem 0x%8h", pc, instr, reg_addr, reg_data, mem_addr);
             end
             
             // C) NORMAL ALU/BRANCH LOGLARI
