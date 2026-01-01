@@ -49,7 +49,7 @@ module core_model
 
     //Instruction_Read_Comb
     logic [31:0] instruction_memory [MEM_SIZE-1:0]; // Intruction memory tanımı
-    //initial $readmemh("./riscv-tests/div_rem/verification_output/div_rem_pure.hex", instruction_memory, 0, MEM_SIZE);
+    //initial $readmemh("./riscv-tests/faktoriyel/verification_output/faktoriyel_pure.hex", instruction_memory, 0, MEM_SIZE);
     initial $readmemh("instruction.hex", instruction_memory, 0, MEM_SIZE); // script için instruction yükleme
 
 
