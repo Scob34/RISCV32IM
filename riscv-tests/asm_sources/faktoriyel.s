@@ -13,7 +13,7 @@ main:
 
     addi x5,x0, 0   # faktoriyelin baslangic elemanı 
     addi x6,x0, 0   # dış dongu baslangıcı i = 0
-    addi x7,x0, 5   # dış dongu sınırı 
+    addi x7,x0, 15  # dış dongu sınırı 
     addi x8,x0, 1   # ic dongu baslangic toplama degeri
     addi x9,x0, 1   # ic dongu baslangic sinir degeri
     addi x11,x0, 0  # ic dongu baslangıcı j = 0
@@ -55,9 +55,5 @@ load:
  
 test_end:
     j test_end
-
-
-
-
 
 
