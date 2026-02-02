@@ -18,17 +18,19 @@ module core_model
 
 /////////////////////////////////////////////////////////////////////////FETCH AŞAMASI//////////////////////////////////////////////////////////////////////////
 
-    //Procram_Counter_Change_Comb
+    //================================================= Procram_Counter_Change_Comb =============================================
     logic [XLEN-1:0] pc_d_fetch;
     
     always_comb begin : program_counter_change_comb
-        if(jump_pc_valid_d_execute)
-            pc_d_fetch = jump_pc_d_execute;
+        if(misprediction_d_execute)
+            pc_d_fetch = correct_jump_pc_d_execute;
+        else if(actually_predict_taken_d_fetch)
+            pc_d_fetch = predict_target_pc_d_fetch;
         else
             pc_d_fetch = pc_q_fetch + 4;
     end
 
-    //Program_Counter_Change_FF
+    //=================================================== Program_Counter_Change_FF ==============================================
     logic [XLEN-1:0] pc_q_fetch;
     logic            update_q_fetch;
 
@@ -47,9 +49,9 @@ module core_model
         end
     end
 
-    //Instruction_Read_Comb
+    //===================================================== Instruction_Read_Comb ================================================
     logic [31:0] instruction_memory [MEM_SIZE-1:0]; // Intruction memory tanımı
-    //initial $readmemh("./riscv-tests/faktoriyel/verification_output/faktoriyel_pure.hex", instruction_memory, 0, MEM_SIZE);
+    //initial $readmemh("./riscv-tests/div_rem/verification_output/div_rem_pure.hex", instruction_memory, 0, MEM_SIZE);
     initial $readmemh("instruction.hex", instruction_memory, 0, MEM_SIZE); // script için instruction yükleme
 
 
@@ -59,7 +61,110 @@ module core_model
         instr_d_fetch = instruction_memory[pc_q_fetch[$clog2(MEM_SIZE*4) - 1 : 2]];
     end
 
-    // IF/ID Register
+    //==================================================== BRANCH PREDICTION UNIT ================================================
+
+    //************************************************ BRANCH HISTORY TABLE *****************************************
+    
+    BHT_Prediction_enum BHT_Table [BHT_BTB_SIZE-1:0]; // 32 satırlık, her satırda 2 bitlik saturating counter bulunan Branch History Table
+    localparam BHT_INDEX_WIDTH = $clog2(BHT_BTB_SIZE); // log2(32) = 5 bit adresleme için kullanılacak, toplamda 32 satır var
+        
+    //------------------------------------ BHT NEXT STATE LOGIC ------------------------------------
+        
+        BHT_Prediction_enum bht_state_current;
+        BHT_Prediction_enum bht_state_next;
+        
+        always_comb begin : BHT_NEXT_STATE_LOGIC
+            bht_state_current = BHT_Table[bht_index_d_execute];
+            bht_state_next = bht_state_current;
+            case(bht_state_current) 
+                STRONGLY_NOT_TAKEN: bht_state_next = (jump_pc_valid_d_execute) ? WEAKLY_NOT_TAKEN : STRONGLY_NOT_TAKEN;
+                WEAKLY_NOT_TAKEN:   bht_state_next = (jump_pc_valid_d_execute) ? WEAKLY_TAKEN : STRONGLY_NOT_TAKEN;
+                WEAKLY_TAKEN:       bht_state_next = (jump_pc_valid_d_execute) ? STRONGLY_TAKEN : WEAKLY_NOT_TAKEN;
+                STRONGLY_TAKEN:     bht_state_next = (jump_pc_valid_d_execute) ? STRONGLY_TAKEN : WEAKLY_TAKEN;
+            endcase
+        end
+
+    //------------------------------------ BHT STATE UPDATE ------------------------------------
+
+        always_ff @(posedge clk or negedge rstn) begin : BHT_STATE_UPDATE
+            if(!rstn) begin
+                integer i;
+                for(i = 0; i < BHT_BTB_SIZE; i = i + 1)
+                    BHT_Table[i] <= STRONGLY_NOT_TAKEN;
+            end
+            else if(is_branch_d_execute) begin
+                BHT_Table[bht_index_d_execute] <= bht_state_next;
+            end
+        end
+        
+    //------------------------------------ BHT PREDICTION LOGIC --------------------------------
+
+        logic [BHT_INDEX_WIDTH-1:0] bht_index_d_fetch;
+        assign bht_index_d_fetch = pc_q_fetch[BHT_INDEX_WIDTH+1:2];
+
+        BHT_Prediction_enum bht_prediction_state;
+        assign bht_prediction_state = BHT_Table[bht_index_d_fetch];
+
+        logic predict_taken_d_fetch;
+        always_comb begin : BHT_PREDICTION_LOGIC
+            predict_taken_d_fetch = 0;
+                case(bht_prediction_state)
+                    STRONGLY_NOT_TAKEN: predict_taken_d_fetch = 0;
+                    WEAKLY_NOT_TAKEN:   predict_taken_d_fetch = 0;
+                    WEAKLY_TAKEN:       predict_taken_d_fetch = 1;
+                    STRONGLY_TAKEN:     predict_taken_d_fetch = 1;
+                endcase
+        end
+    
+    //************************************************ BRANCH TARGET BUFFER *****************************************
+    
+    // 32 satırlık, her satırda hedef PC ve hedef PC geçerlilik biti bulunan Branch Target Buffer
+    btb_entry_struct BTB_Table [BHT_BTB_SIZE-1:0];
+
+    logic [BHT_INDEX_WIDTH-1:0] btb_index_d_fetch;
+    assign btb_index_d_fetch = pc_q_fetch[BHT_INDEX_WIDTH+1:2];
+
+    logic [XLEN-1:0] predict_target_pc_d_fetch;
+    logic [XLEN-1:0] predict_target_pc_q_fetch;
+    logic btb_hit_d_fetch;
+
+    //-------------------------------------------- BTB PREDICTION LOGIC ------------------------------------
+    
+    always_comb begin : BTB_PREDICTION_LOGIC
+        btb_hit_d_fetch = BTB_Table[btb_index_d_fetch].valid && (BTB_Table[btb_index_d_fetch].tag == pc_q_fetch[XLEN-1:7]);
+        predict_target_pc_d_fetch = BTB_Table[btb_index_d_fetch].target; 
+    end
+
+    //-------------------------------------------- BTB UPDATE LOGIC ----------------------------------------
+
+    always_ff @(posedge clk or negedge rstn) begin : BTB_UPDATE_LOGIC
+        if(!rstn) begin
+            integer j;
+            for(j = 0; j < BHT_BTB_SIZE; j = j + 1) begin
+                BTB_Table[j].valid <= 0;
+                BTB_Table[j].tag   <= 0;
+                BTB_Table[j].target<= 0;
+            end
+        end
+        else begin
+            if(jump_pc_valid_d_execute) begin
+                BTB_Table[btb_index_d_execute].valid  <= 1;
+                BTB_Table[btb_index_d_execute].tag    <= pc_d_execute[XLEN-1:7];
+                BTB_Table[btb_index_d_execute].target <= jump_pc_d_execute;
+            end
+            else if(is_branch_d_execute || is_jump_d_execute) begin
+                BTB_Table[btb_index_d_execute].valid  <= 0;
+            end
+        end
+    end
+
+    //************************** PC CHANGE COMB'A GİRECEK BRANCH PREDICTION SİNYALİ ***********************
+
+    logic actually_predict_taken_d_fetch;
+    assign actually_predict_taken_d_fetch = predict_taken_d_fetch && btb_hit_d_fetch;
+    logic actually_predict_taken_q_fetch;
+
+    //======================================================== IF/ID Register ====================================================
     logic [XLEN-1:0] instr_q_fetch;
     logic [XLEN-1:0] pc_q_fetch_to_decode;
     logic            update_q_fetch_to_decode;
@@ -69,20 +174,26 @@ module core_model
             instr_q_fetch <= 0;
             pc_q_fetch_to_decode <= 0;
             update_q_fetch_to_decode <= 0;
+            actually_predict_taken_q_fetch <= 0;
+            predict_target_pc_q_fetch <= 0;
         end
         else if(is_Stall_IF_ID_Register) begin
             instr_q_fetch <= instr_q_fetch;
             pc_q_fetch_to_decode <= pc_q_fetch_to_decode;
             update_q_fetch_to_decode <= update_q_fetch_to_decode;
+            actually_predict_taken_q_fetch <= actually_predict_taken_q_fetch;
+            predict_target_pc_q_fetch <= predict_target_pc_q_fetch;
         end
         else begin
             instr_q_fetch <= instr_d_fetch;
             pc_q_fetch_to_decode <= pc_q_fetch;
             update_q_fetch_to_decode <= update_q_fetch;
+            actually_predict_taken_q_fetch <= actually_predict_taken_d_fetch;
+            predict_target_pc_q_fetch <= predict_target_pc_d_fetch;
         end
     end
 
-/////////////////////////////////////////////////////////////////////////DECODE AŞAMASI/////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////// DECODE AŞAMASI /////////////////////////////////////////////////////////////////////////
 
     //=========================================================== INPUTLAR ================================================
     logic [XLEN-1:0] instr_d_decode;
@@ -93,6 +204,12 @@ module core_model
 
     logic            update_d_decode;
     assign update_d_decode = update_q_fetch_to_decode;
+
+    logic actually_predict_taken_d_decode;
+    assign actually_predict_taken_d_decode = actually_predict_taken_q_fetch;
+
+    logic [XLEN-1:0] predict_target_pc_d_decode;
+    assign predict_target_pc_d_decode = predict_target_pc_q_fetch;
 
     //==================================================== INTERNAL DEĞİŞKENLER ============================================
     logic [XLEN-1:0] imm_data_d_decode;
@@ -141,6 +258,9 @@ module core_model
     logic [XLEN-1:0] rs2_data_q_decode;
 
     operation_e operation_q_decode;
+
+    logic actually_predict_taken_q_decode;
+    logic [XLEN-1:0] predict_target_pc_q_decode;
 
     //======================================= CONTROL SİNYELLERİ, IMMEDIATE DEĞERİ ATAMALARI ===================================
     always_comb begin : DECODE_BLOCK
@@ -302,6 +422,23 @@ module core_model
             register_file[rd_d_writeback] <= rd_data_d_writeback;
     end
 
+    //================================================== BRANCH-JUMP DECISION UNIT =========================================
+
+    logic is_branch_d_decode;
+    logic is_jump_d_decode;
+
+    logic is_branch_q_decode;
+    logic is_jump_q_decode;
+
+    always_comb begin : BRANCH_JUMP_DECISION_UNIT
+        is_branch_d_decode = (operation_d_decode == BEQ || operation_d_decode == BNE || operation_d_decode == BLT ||
+                             operation_d_decode == BGE || operation_d_decode == BLTU || operation_d_decode == BGEU);
+
+        is_jump_d_decode = (operation_d_decode == JAL || operation_d_decode == JALR);
+    end
+
+
+
     //=====================================================  ID/IEX REGISTER ================================================
 
     always_ff @(posedge clk or negedge rstn) begin : ID_IEX_REGISTER
@@ -326,6 +463,12 @@ module core_model
             rs2_data_q_decode <= 0;
 
             operation_q_decode <= OPERATION_UNKNOWN;
+
+            is_branch_q_decode <= 0;
+            is_jump_q_decode <= 0;
+
+            actually_predict_taken_q_decode <= 0;
+            predict_target_pc_q_decode <= 0;
         end
         else if(is_Stall_ID_IEX_Register) begin
             instr_q_decode <= instr_q_decode;
@@ -348,6 +491,12 @@ module core_model
             rs2_data_q_decode <= rs2_data_q_decode;
 
             operation_q_decode <= operation_q_decode;
+
+            is_branch_q_decode <= is_branch_q_decode;
+            is_jump_q_decode <= is_jump_q_decode;
+
+            actually_predict_taken_q_decode <= actually_predict_taken_q_decode;
+            predict_target_pc_q_decode <= predict_target_pc_q_decode;
         end
         else begin
             instr_q_decode <= instr_d_decode;
@@ -370,10 +519,16 @@ module core_model
             rs2_data_q_decode <= rs2_data_d_decode;
 
             operation_q_decode <= operation_d_decode;
+
+            is_branch_q_decode <= is_branch_d_decode;
+            is_jump_q_decode <= is_jump_d_decode;
+
+            actually_predict_taken_q_decode <= actually_predict_taken_d_decode;
+            predict_target_pc_q_decode <= predict_target_pc_d_decode;
         end
     end
 
-///////////////////////////////////////////////////////////////////////EXECUTE AŞAMASI//////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////// EXECUTE AŞAMASI //////////////////////////////////////////////////////////////////////////
 
     //=================================================== INPUTLAR ===========================================================
 
@@ -412,6 +567,51 @@ module core_model
     
     operation_e operation_d_execute;
     assign operation_d_execute = operation_q_decode;
+
+    //---------------- BRANCH PREDICTION İÇİN GEREKLİ INPUTLAR ----------------
+
+    logic is_branch_d_execute;
+    assign is_branch_d_execute = is_branch_q_decode;
+
+    logic is_jump_d_execute;
+    assign is_jump_d_execute = is_jump_q_decode;
+
+    logic actually_predict_taken_d_execute;
+    assign actually_predict_taken_d_execute = actually_predict_taken_q_decode;
+
+    logic [XLEN-1:0] predict_target_pc_d_execute;
+    assign predict_target_pc_d_execute = predict_target_pc_q_decode;
+
+    logic [BHT_INDEX_WIDTH-1:0] bht_index_d_execute;
+    logic [BHT_INDEX_WIDTH-1:0] btb_index_d_execute;
+    //Execute aşamasındaki PC'den BHT indexini hesaplıyoruz. pc[6:2] bitleri kullanılıyor çünkü word adresleme var ve alt 2 bit her zaman 00.
+    //Execute aşamasından gelen sinyali kullanmamızın sebebi, burda atlama seçimi yapmıyoruz next state'i belirliyoruz, atlama olup olmadığı Ex'te belli oluyor.
+    assign bht_index_d_execute = pc_d_execute[BHT_INDEX_WIDTH+1:2];
+    assign btb_index_d_execute = pc_d_execute[BHT_INDEX_WIDTH+1:2];
+
+    //------------ BRANCH REDICTION DALLANMA KONTROL BİRİMİ --------------------
+
+    logic misprediction_d_execute;
+    logic [XLEN-1:0] correct_jump_pc_d_execute;
+
+    always_comb begin: MISPREDICTION_DETECT_UNIT
+        misprediction_d_execute = 0;
+        if(is_branch_d_execute || is_jump_d_execute) begin
+            misprediction_d_execute = (actually_predict_taken_d_execute != jump_pc_valid_d_execute) ||
+                                      (actually_predict_taken_d_execute && (predict_target_pc_d_execute != jump_pc_d_execute));
+        end
+    end
+
+    always_comb begin: CORRECT_JUMP_PC_DETECT_UNIT
+        correct_jump_pc_d_execute = 0;
+        if(misprediction_d_execute) begin
+            if(jump_pc_valid_d_execute) begin
+                correct_jump_pc_d_execute = jump_pc_d_execute;
+            end
+            else
+                correct_jump_pc_d_execute = pc_d_execute + 4;
+        end 
+    end
 
     //===================================================== FORWARDING DATA ======================================================
     
@@ -640,7 +840,7 @@ module core_model
                         is_busy_d_execute = 1;
                     end
                 end
-                else begin
+                else begin  
                     MEXT_next_state = IDLE;
                 end
             end
@@ -813,7 +1013,7 @@ module core_model
         end
     end
 
-/////////////////////////////////////////////////////////////////////////MEMORY AŞAMASI/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////// MEMORY AŞAMASI /////////////////////////////////////////////////////////////////////////
 
     //===================================================== INPUTLAR =====================================================
     logic [XLEN-1:0] pc_d_memory;
@@ -982,7 +1182,7 @@ module core_model
         end
     end
 
-/////////////////////////////////////////////////////////////////////////////WRITEBACK AŞAMASI//////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////// WRITEBACK AŞAMASI //////////////////////////////////////////////////////////////////////////
 
     //INPUTLAR
     logic [XLEN-1:0] pc_d_writeback;
@@ -1018,7 +1218,7 @@ module core_model
     logic [XLEN-1:0] data_memory_address_d_writeback;
     assign data_memory_address_d_writeback = data_memory_address_q_memory;
 
-//////////////////////////////////////////////////////////////////////////////HAZARD UNIT///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////// HAZARD UNIT ///////////////////////////////////////////////////////////////////////////////
 
     //================================================= FORWARDING UNIT =================================================
     Forward_Type_enum is_forward_rs1;
@@ -1064,7 +1264,7 @@ module core_model
         is_Stall_IF_ID_Register = 0;
         is_Stall_ID_IEX_Register = 0;
 
-        if(jump_pc_valid_d_execute) begin
+        if(misprediction_d_execute) begin
             is_Flush_IF_ID_Register = 1;
             is_Flush_ID_IEX_Register = 1;
         end

@@ -1039,6 +1039,10 @@ package riscv_pkg;
     localparam F3_REM  = 3'b110;
     localparam F3_REMU = 3'b111;
 
+    localparam BHT_BTB_SIZE = 32;
+
+
+
 
     typedef struct packed { 
       logic [XLEN-1:0] data;
@@ -1209,6 +1213,19 @@ package riscv_pkg;
     DONE,
     UNKNOWN_MEXT_STATE
   } Mext_State_enum;
+
+  typedef enum logic [1:0] {
+    STRONGLY_NOT_TAKEN = 2'b00,
+    WEAKLY_NOT_TAKEN   = 2'b01,
+    WEAKLY_TAKEN       = 2'b10,
+    STRONGLY_TAKEN     = 2'b11
+  } BHT_Prediction_enum;
+
+  typedef struct packed {
+    logic              valid;
+    logic [XLEN-8:0]   tag;    // 25 bit (32-7)
+    logic [XLEN-1:0]   target; // 32 bit
+  } btb_entry_struct;
 
   function automatic logic [XLEN-1:0] clz_function(logic [XLEN-1:0] rs1_data); // msb bitinden itibaren arka arkaya kaç adet 0 olduğunu sayar.
     logic [XLEN-1:0] result;
