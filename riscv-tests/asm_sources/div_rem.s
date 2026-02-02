@@ -5,59 +5,42 @@ _start:
 _init:
     nop
 
-main:
-    # 20 / 4 işlemi, sonuç 5 çıkmalı
-    li x5, 20
-    li x6, 4
-    div x7, x5, x6        # x7 = 5
+    # --- Temel İşaretli Bölme (Signed DIV/REM) ---
+    li t0, 20           # Pay
+    li t1, 3            # Payda
+    div t2, t0, t1      # t2 = 6
+    rem t3, t0, t1      # t3 = 2
 
-    # -20 / 4 işlemi, sonuç -5 çıkmalı
-    li x5, -20
-    li x6, 4
-    div x8, x5, x6        # x8 = -5 (0xFFFFFFFB)
+    li t0, -20          # Negatif sayi
+    div t4, t0, t1      # t4 = -6
+    rem t5, t0, t1      # t5 = -2
 
-    # 100 / 3 işlemi, sonuç 33 çıkmalı
-    li x5, 100
-    li x6, 3
-    div x9, x5, x6        # x9 = 33
+    # --- İşaretsiz Bölme (Unsigned DIVU/REMU) ---
+    li t0, 0xFFFFFFFF   # Isaretsiz olarak cok buyuk bir sayi
+    li t1, 2
+    divu a0, t0, t1     # a0 = 2147483647 (0x7FFFFFFF)
+    remu a1, t0, t1     # a1 = 1
 
-    # 10 % 3 kalanı bulma, sonuç 1 olmalı
-    li x5, 10
-    li x6, 3
-    rem x10, x5, x6       # x10 = 1
+    # --- Corner Case 1: Sifira Bolme (Division by Zero) ---
+    # RISC-V kuralina gore: x / 0 = -1, x % 0 = x
+    li t0, 15
+    li t1, 0
+    div s0, t0, t1      # s0 = -1 (0xFFFFFFFF)
+    rem s1, t0, t1      # s1 = 15
 
-    # -10 % 3 kalanı bulma, isaretli oldugu icin -1 çıkmalı
-    li x5, -10
-    li x6, 3
-    rem x11, x5, x6       # x11 = -1
+    # --- Corner Case 2: Isaretli Tasma (Signed Overflow) ---
+    # En kucuk negatif sayi / -1 durumu (-2^31 / -1)
+    # RISC-V kuralina gore: Sonuc yine -2^31, kalan ise 0 olur.
+    li t0, 0x80000000   # -2147483648
+    li t1, -1
+    div s2, t0, t1      # s2 = 0x80000000 (-2147483648)
+    rem s3, t0, t1      # s3 = 0
 
-    # Sfıra bölme,  normalde hata verir ama islemcide sonuç -1 dönmeli ricv kuralalrından dolayı
-    li x5, 100
-    li x6, 0
-    div x12, x5, x6       # x12 = -1 (0xFFFFFFFF)
-
-    # Sıfıra bölme durumunda kalan bulma, sonuç bölünenin kendisi olmal riscv kuralları gereği.
-    li x5, 55
-    li x6, 0
-    rem x13, x5, x6       # x13 = 55 (0x37)
-
-    # Signed Overflow bölme, bölüm 0x80000000 olarak döner riscv kuralları gereği
-    li x5, 0x80000000     # Min_Int yukledik
-    li x6, -1
-    div x14, x5, x6       # x14 = 0x80000000
-
-    # Signed overflow kalan bulma, kalan 0 olarka döner riscv kuralları gereği
-    rem x15, x5, x6       # x15 = 0
-
-    # DIVU, İşaretsiz Bölme
-    li x5, -2             # Aslinda 0xFFFFFFFE
-    li x6, 2
-    divu x16, x5, x6      # x16 = 0x7FFFFFFF (Max_Int)
-
-    # Unsigned sıfıra bölme, bölüm 0xFFFFFFFF döner riscv kuralalrından dolayı
-    li x5, 20
-    li x6, 0
-    divu x17, x5, x6      # x17 = 0xFFFFFFFF
+    # --- Farkli Isaretli Bolme ---
+    li t0, 10
+    li t1, -3
+    div s4, t0, t1      # s4 = -3
+    rem s5, t0, t1      # s5 = 1 (Kalan payin isaretiyle ayni olmali)
 
 test_end:
-    j test_end            # simulasyon burada bitsin
+    j test_end

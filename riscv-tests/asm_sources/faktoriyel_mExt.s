@@ -12,7 +12,7 @@ main:
     la   x10, dizi      # Dizinin başlangıç adresi
     addi x5, x0, 1      # Faktöriyel sonuç başlangıcı (1! = 1)
     addi x6, x0, 1      # Döngü sayacı (i = 1)
-    addi x7, x0, 15      # Dış döngü sınırı 
+    addi x7, x0, 15     # Dış döngü sınırı 
 
     # Faktöriyel hesaplayan fonksiyonu çağır
     jal  x1, faktoriyel_m
@@ -27,11 +27,11 @@ main:
 # --- M-Extension Kullanan Fonksiyon ---
 faktoriyel_m:
     # mul rd, rs1, rs2 -> x5 = x5 * x6
-    mul  x5, x5, x6     # M-EXTENSION BURADA DEVREYE GİRİYOR
+    mul  x5, x5, x6     # M-EXTENSION mul komutu
     
     sw   x5, 0(x10)     # Sonucu belleğe yaz
     addi x10, x10, 4    # Adresi ilerlet
-    addi x6, x6, 1      # n'i artır (1, 2, 3, 4, 5)
+    addi x6, x6, 1      # i'yi artır (1, 2, 3, 4, 5)
     blt  x6, x7, faktoriyel_m
     jalr x0, 0(x1)      # Geri dön
 

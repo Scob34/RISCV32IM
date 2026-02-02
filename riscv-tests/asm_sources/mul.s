@@ -37,7 +37,7 @@ main:
     mulh x6, x1, x2
 
     # ==========================================
-    # TEST 4: En Zor Test - Signed x Unsigned (MULHSU)
+    # TEST 4:  Signed x Unsigned (MULHSU)
     # İşlem: -1 (Signed) * 2 (Unsigned)
     # Matematik: -1 * 2 = -2 
     # 64-bit Hex karşılığı: 0xFFFFFFFF_FFFFFFFE
