@@ -1,6 +1,11 @@
 riscv-tests/**/build/
 riscv-tests/**/verification_output/
 **/__pycache__/
+obj_dir/
+dump.vcd
+instruction.hex
+my_outputs/
+my_waveforms/
 
 # LaTeX Geçici Dosyaları
 *.aux
