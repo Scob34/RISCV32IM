@@ -781,6 +781,9 @@ module core_model
     logic is_DIV_op;
     assign is_DIV_op = (operation_d_execute == DIV || operation_d_execute == DIVU || operation_d_execute == REM || operation_d_execute == REMU);
 
+    logic is_signed_DIV_op;
+    assign is_signed_DIV_op = (operation_d_execute == DIV || operation_d_execute == REM);
+
     //**************************************** SIGN_FIND_BLOCK ***********************************
 
     logic sign_multiplicand_dividend;
@@ -823,7 +826,7 @@ module core_model
                         MEXT_next_state = DONE;
                         is_busy_d_execute = 1;
                     end
-                    else if(is_DIV_op && multiplicand_dividend == 32'h8000_0000 && multiplier_divisor == 32'hFFFF_FFFF) begin
+                    else if(is_signed_DIV_op && multiplicand_dividend == 32'h8000_0000 && multiplier_divisor == 32'hFFFF_FFFF) begin
                         MEXT_next_state = DONE;
                         is_busy_d_execute = 1;
                     end
@@ -871,9 +874,11 @@ module core_model
             IDLE: begin
                 if(is_MEXT_op) begin
                     if(is_DIV_op && (multiplier_divisor == 0)) begin  // sıfıra bölme durumu
-                        product_register_next = {multiplicand_dividend, 32'hFFFF_FFFF};
+                        // DIVU/REMU: sign=0, doğrudan sonuç. DIV/REM: işaret düzeltmesiyle uyumlu değerler.
+                        product_register_next = {(sign_multiplicand_dividend) ? (~multiplicand_dividend + 1) : multiplicand_dividend,
+                                                 (sign_multiplicand_dividend) ? 32'h0000_0001 : 32'hFFFF_FFFF};
                     end
-                    else if(is_DIV_op && multiplicand_dividend == 32'h8000_0000 && multiplier_divisor == 32'hFFFF_FFFF) begin
+                    else if(is_signed_DIV_op && multiplicand_dividend == 32'h8000_0000 && multiplier_divisor == 32'hFFFF_FFFF) begin
                         product_register_next = {32'h0000_0000, multiplicand_dividend}; // Overflow durumu, -2^31 / -1 = +2^31 olmalı ama değer 32 bite sığmaz.
                     end
                     else if(is_DIV_op && (multiplicand_dividend == 0)) begin  // bölünenin 0 olduğu durum
