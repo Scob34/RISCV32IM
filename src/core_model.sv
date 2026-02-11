@@ -814,10 +814,12 @@ module core_model
     Mext_State_enum MEXT_state;
     Mext_State_enum MEXT_next_state;
     logic is_busy_d_execute;
+    logic is_mext_shortcircuit; // shortcircuit durumlarında işaret düzeltmesini devre dışı bırakmak için
 
     always_comb begin: NEXT_STATE_FSM
         MEXT_next_state = MEXT_state;
         is_busy_d_execute = 0;
+        is_mext_shortcircuit = 0;
 
         case(MEXT_state)
             IDLE: begin
@@ -825,18 +827,22 @@ module core_model
                     if(is_DIV_op && (multiplier_divisor == 0)) begin   // sıfıra bölme durumu
                         MEXT_next_state = DONE;
                         is_busy_d_execute = 1;
+                        is_mext_shortcircuit = 1;
                     end
                     else if(is_signed_DIV_op && multiplicand_dividend == 32'h8000_0000 && multiplier_divisor == 32'hFFFF_FFFF) begin
                         MEXT_next_state = DONE;
                         is_busy_d_execute = 1;
+                        is_mext_shortcircuit = 1;
                     end
                     else if(is_DIV_op && (multiplicand_dividend == 0)) begin // bölünenin 0 olduğu durum
                         MEXT_next_state = DONE;
                         is_busy_d_execute = 1;
+                        is_mext_shortcircuit = 1;
                     end
                     else if(!is_DIV_op && (multiplier_divisor == 0 || multiplicand_dividend == 0)) begin // çarpan veya çarpılanın 0 olduğu durum
                         MEXT_next_state = DONE;
                         is_busy_d_execute = 1;
+                        is_mext_shortcircuit = 1;
                     end
                     else begin // normal durum
                         MEXT_next_state = BUSY;
@@ -874,9 +880,9 @@ module core_model
             IDLE: begin
                 if(is_MEXT_op) begin
                     if(is_DIV_op && (multiplier_divisor == 0)) begin  // sıfıra bölme durumu
-                        // DIVU/REMU: sign=0, doğrudan sonuç. DIV/REM: işaret düzeltmesiyle uyumlu değerler.
-                        product_register_next = {(sign_multiplicand_dividend) ? (~multiplicand_dividend + 1) : multiplicand_dividend,
-                                                 (sign_multiplicand_dividend) ? 32'h0000_0001 : 32'hFFFF_FFFF};
+                        // RISC-V spec: bölüm = 0xFFFFFFFF (-1), kalan = bölünen (x)
+                        // shortcircuit'te işaret düzeltmesi devre dışı olduğu için doğrudan son değerler yazılır.
+                        product_register_next = {multiplicand_dividend, 32'hFFFF_FFFF};
                     end
                     else if(is_signed_DIV_op && multiplicand_dividend == 32'h8000_0000 && multiplier_divisor == 32'hFFFF_FFFF) begin
                         product_register_next = {32'h0000_0000, multiplicand_dividend}; // Overflow durumu, -2^31 / -1 = +2^31 olmalı ama değer 32 bite sığmaz.
@@ -945,8 +951,8 @@ module core_model
             product_register <= product_register_next;
             multiplicand_divisor_register <= multiplicand_divisor_register_next;
             counter <= (MEXT_state == BUSY && counter > 0) ? counter - 1 : XLEN;
-            sign_multiplicand_dividend_register <= (MEXT_state == IDLE) ? sign_multiplicand_dividend : sign_multiplicand_dividend_register;
-            sign_multiplier_divisor_register <= (MEXT_state == IDLE) ? sign_multiplier_divisor : sign_multiplier_divisor_register;
+            sign_multiplicand_dividend_register <= (MEXT_state == IDLE) ? (is_mext_shortcircuit ? 1'b0 : sign_multiplicand_dividend) : sign_multiplicand_dividend_register;
+            sign_multiplier_divisor_register <= (MEXT_state == IDLE) ? (is_mext_shortcircuit ? 1'b0 : sign_multiplier_divisor) : sign_multiplier_divisor_register;
         end
     end
 

@@ -31,9 +31,10 @@
 # Kisaca: pozitif bolunende isaret duzeltmesi devre disi kaldigindan hata gizli kaldi.
 # Negatif bolunende isaret duzeltmesi cift negasyon yaparak yanlis sonuc uretti.
 #
-# DUZELTME: Shortcircuit, isaret duzeltmesiyle uyumlu degerler saklayacak sekilde guncellendi:
-#   product_register_next = {(sign_d) ? |x| : x, (sign_d) ? 1 : 0xFFFFFFFF}
-#   Boylece isaret duzeltmesi dogru sekilde calisir.
+# DUZELTME: Shortcircuit durumlarinda is_mext_shortcircuit sinyali ile isaret register'lari
+# sifirlanarak PRODUCT_FINAL_CALCULATION'in duzeltme yapmasinin onune gecildi.
+# Boylece product_register_next = {dividend, 0xFFFFFFFF} dogrudan RISC-V spec degerlerini
+# saklayabiliyor, isaret karmasikligi ortadan kaldirildi.
 # ==========================================
 
 _start:
